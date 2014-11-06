@@ -5,6 +5,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
+#include "vm/frame.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -104,7 +106,7 @@ kill (struct intr_frame *f)
              f->vec_no, intr_name (f->vec_no), f->cs);
       thread_exit ();
     }
-}
+} 
 
 /* Page fault handler.  This is a skeleton that must be filled in
    to implement virtual memory.  Some solutions to project 2 may
@@ -152,7 +154,14 @@ page_fault (struct intr_frame *f)
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
        which fault_addr refers. */
-      
+    if (not_present)
+      {
+        if (!evict_page (fault_addr))
+          {
+            kill(f);
+          }
+
+      }
     
 
   //kill (f);

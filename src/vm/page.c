@@ -118,8 +118,8 @@ supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_b
 /* Looks up and returns the Sector number that corresponds to user virtual
    address VADDR in PD.   Returns a null pointer if
    VADDR is unmapped. */
-uint32_t
-supdir_get_page (uint32_t *pd, const void *vaddr) 
+uint64_t
+supdir_get_sector (uint32_t *pd, const void *vaddr) 
 {
   uint64_t *pte;
 
@@ -127,7 +127,7 @@ supdir_get_page (uint32_t *pd, const void *vaddr)
   
   pte = lookup_sup_page (pd, vaddr, false);
   if (pte != NULL)
-    return (uint32_t) *pte; //Make sure this gets the lowest 32 bits!!!!!!!!!!!
+    return (uint64_t) *pte; //Make sure this gets the lowest 32 bits!!!!!!!!!!!
   else
     return NULL;
 }
@@ -148,6 +148,31 @@ supdir_clear_page (uint32_t *pd, void *upage)
   if (pte != NULL)
     {
       *pte = 0;
+    }
+}
+
+bool
+load_page (uint32_t *addr)
+{
+  uint64_t pte = lookup_sup_page (thread_current ()->suptable, addr, false);
+  if(pte != NULL)
+    {
+      uint8_t location = (pte >> 32) & 0x3;
+      uint32_t sector = (uint32_t) pte;
+      
+      /*like fill this in please! thanks*/
+      if (location == ZERO_SYS)
+        {
+
+        }
+      else if (location == FILE_SYS)
+        {
+
+        }
+      else
+        {
+
+        }
     }
 }
 

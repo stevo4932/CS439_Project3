@@ -13,6 +13,7 @@
 
 static uint64_t *ft;
 static int ft_index;
+static int evict_index;
 
 
 
@@ -42,6 +43,19 @@ get_user_page (uint8_t *vaddr)
 			uint64_t bigv = (uint64_t) 0 | (int) vaddr;
 	ft[ft_index++] = (bigv << 32) | (int) thread_current ();
 	return page;
+}
+/*evict a page using FIFO*/
+bool
+evict_page (uint8_t *new_addr, bool write)
+{
+	uint32_t old_addr = (ft[evict_index] >> 32) ;
+	struct thread *t = (struct thread *) ft[evict_index];
+	uint32_t frame_addr = pagedir_get_page (t->pagedir, old_addr);
+	uint64_t big_addr = (uint64_t) 0 | (int) new_addr;
+	
+	pagedir_clear_page (t->pagedir, old_addr);
+	ft[evict_index++] = (big_addr << 32) | (int) thread_current ();
+	return pagedir_set_page (thread_current ()->pagedir, new_addr, frame_addr, write);
 }
 
 void
