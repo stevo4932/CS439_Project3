@@ -22,6 +22,7 @@
 #include "threads/palloc.h"
 #include "threads/pte.h"
 #include "threads/thread.h"
+#include "vm/frame.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/exception.h"
@@ -101,6 +102,7 @@ main (void)
 
   /* Segmentation. */
 #ifdef USERPROG
+  frame_table_init ();
   tss_init ();
   gdt_init ();
 #endif
@@ -133,6 +135,9 @@ main (void)
   run_actions (argv);
 
   /* Finish up. */
+#ifdef USERPROG
+  frame_table_free ();
+#endif
   shutdown ();
   thread_exit ();
 }

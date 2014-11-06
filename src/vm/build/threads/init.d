@@ -9,8 +9,8 @@ threads/init.o: ../../threads/init.c ../../threads/init.h \
   ../../threads/interrupt.h ../../threads/io.h ../../threads/loader.h \
   ../../threads/malloc.h ../../threads/palloc.h ../../threads/pte.h \
   ../../threads/vaddr.h ../../threads/thread.h ../../lib/kernel/list.h \
-  ../../threads/synch.h ../../userprog/process.h ../../threads/thread.h \
-  ../../userprog/exception.h ../../userprog/gdt.h ../../threads/loader.h \
-  ../../userprog/syscall.h ../../filesys/file.h ../../filesys/off_t.h \
-  ../../userprog/tss.h ../../devices/block.h ../../devices/ide.h \
-  ../../filesys/filesys.h ../../filesys/fsutil.h
+  ../../threads/synch.h ../../vm/frame.h ../../userprog/process.h \
+  ../../threads/thread.h ../../userprog/exception.h ../../userprog/gdt.h \
+  ../../threads/loader.h ../../userprog/syscall.h ../../filesys/file.h \
+  ../../filesys/off_t.h ../../userprog/tss.h ../../devices/block.h \
+  ../../devices/ide.h ../../filesys/filesys.h ../../filesys/fsutil.h

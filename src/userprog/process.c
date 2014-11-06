@@ -375,7 +375,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   int i;
   int cmd_len;
 //ISSUE!!!!!!!!!!!!!!!!!!!!
-  char *cmdline_copy = palloc_get_page (PAL_ZERO | PAL_USER | PAL_ASSERT);
+  char *cmdline_copy = palloc_get_page ();
   strlcpy (cmdline_copy, cmdline, strnlen (cmdline, MAX_CMD_LEN) + 1);
   char *save_ptr;
   char *file_name = strtok_r (cmdline_copy, " ", &save_ptr);

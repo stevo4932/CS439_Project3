@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-void frametable_init (void);
+void frame_table_init (void);
 void *get_user_page (uint8_t *vaddr);
+void frame_table_free (void);
 
-#endif
+#endif /* vm/frame.h */
