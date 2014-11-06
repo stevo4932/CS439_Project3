@@ -14,6 +14,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "vm/page.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -187,6 +188,7 @@ thread_create (const char *name, int priority,
   t->files = (struct file **) palloc_get_page (PAL_ZERO);
   tid = t->tid = allocate_tid ();
   t->parent = thread_current ();
+  t->suptable = supdir_create (0);
   /* Add new thread's childelem to current thread's children list. */
   sema_down (&t->parent->child_list_sema);
   list_push_back (&t->parent->children, &t->childelem);

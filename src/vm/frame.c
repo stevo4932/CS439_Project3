@@ -24,7 +24,7 @@ frame_table_init ()
 }
 
 
-/*Obtains an unused fram for the user.
+/*Obtains an unused frame for the user.
   If one is free, add the address to the frame table
   and return it to the user.*/
 void *
@@ -36,7 +36,10 @@ get_user_page (uint8_t *vaddr)
 		/*No page avalible. Return NULL FOR NOW. WILL NEED TO CHAGE !!!!!!!!!!!*/
 		return page;
 	/*store the page address into frame table*/
-	uint64_t bigv = (uint64_t) 0 | (int) vaddr;
+	if (vaddr == -1)
+			uint64_t bigv = (uint64_t) 0 | (int) page;
+	else
+			uint64_t bigv = (uint64_t) 0 | (int) vaddr;
 	ft[ft_index++] = (bigv << 32) | (int) thread_current ();
 	return page;
 }

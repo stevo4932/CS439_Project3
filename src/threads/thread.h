@@ -98,7 +98,8 @@ struct thread
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */                   
+    uint32_t *pagedir;                  /* Page directory. */
+    uint32_t *suptable;                 /*Sup Table.*/                   
 #endif
     struct thread *parent;              /* Pointer to parent. */
     struct list children;               /* List of this process's children. */

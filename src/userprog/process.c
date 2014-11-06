@@ -478,7 +478,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (cmdline, esp))
+  if (!setup_stack (cmdline, esp, )
     goto done;
 
   /* Start address. */
@@ -574,24 +574,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = get_user_page (upage);
-      if (kpage == NULL)
-        return false;
-
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
+      // uint8_t *kpage = get_user_page (upage);
+      // if (kpage == NULL)
+      //   return false;
+      
+      supdir_set_page (thread_current ()->suptable, upage, file->inode->sector, page_read_bytes);
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -604,12 +591,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (const char *cmdline, void **esp) 
+setup_stack (const char *cmdline, void **esp, uint32_t vaddr) 
 {
   uint8_t *kpage;
   bool success = false;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = get_user_page (-1);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
