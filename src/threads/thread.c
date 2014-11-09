@@ -12,10 +12,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#ifdef USERPROG
-#include "userprog/process.h"
 #include "vm/page.h"
-#endif
+//#ifdef USERPROG
+#include "userprog/process.h"
+//#endif
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -188,7 +188,7 @@ thread_create (const char *name, int priority,
   t->files = (struct file **) palloc_get_page (PAL_ZERO);
   tid = t->tid = allocate_tid ();
   t->parent = thread_current ();
-  t->suptable = supdir_create (-1);
+  //t->suptable = supdir_create (-1);
   /* Add new thread's childelem to current thread's children list. */
   sema_down (&t->parent->child_list_sema);
   list_push_back (&t->parent->children, &t->childelem);

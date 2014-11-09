@@ -10,6 +10,7 @@
 #include "userprog/tss.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
+#include "filesys/inode.h"
 #include "filesys/filesys.h"
 #include "threads/flags.h"
 #include "threads/init.h"
@@ -20,6 +21,8 @@
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
 #include "vm/frame.h"
+#include "vm/page.h"
+#include "devices/block.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -375,7 +378,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   int i;
   int cmd_len;
 //ISSUE!!!!!!!!!!!!!!!!!!!!
-  char *cmdline_copy = palloc_get_page ();
+  char *cmdline_copy = palloc_get_page (0);
   strlcpy (cmdline_copy, cmdline, strnlen (cmdline, MAX_CMD_LEN) + 1);
   char *save_ptr;
   char *file_name = strtok_r (cmdline_copy, " ", &save_ptr);
@@ -390,6 +393,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
+  t->suptable = supdir_create (-1);
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
@@ -478,7 +482,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (cmdline, esp, )
+  if (!setup_stack (cmdline, esp))
     goto done;
 
   /* Start address. */
@@ -570,7 +574,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Calculate how to fill this page.
          We will read PAGE_READ_BYTES bytes from FILE
          and zero the final PAGE_ZERO_BYTES bytes. */
-      size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+      size_t page_read_bytes = (read_bytes < PGSIZE) ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
@@ -578,7 +582,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       // if (kpage == NULL)
       //   return false;
       
-      supdir_set_page (thread_current ()->suptable, upage, file->inode->sector, page_read_bytes);
+      //uint8_t location = (page_read_bytes == 0) ? (uint8_t) ZERO_SYS : (uint8_t) FILE_SYS;
+      uint8_t location = (page_read_bytes == 0) ? 1 : 3;
+      struct inode *inode = file_get_inode (file);
+      uint32_t sector = byte_to_sector (inode, ofs);
+      //uint32_t sector = inode->sector + (ofs / BLOCK_SECTOR_SIZE);
+      supdir_set_page (thread_current ()->suptable, upage, sector, page_read_bytes, location);
 
       /* Advance. */
       read_bytes -= page_read_bytes;
@@ -591,12 +600,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (const char *cmdline, void **esp, uint32_t vaddr) 
+setup_stack (const char *cmdline, void **esp) 
 {
   uint8_t *kpage;
   bool success = false;
 
-  kpage = get_user_page (-1);
+  kpage = get_user_page ((uint8_t *)-1);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);

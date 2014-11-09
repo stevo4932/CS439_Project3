@@ -1,14 +1,13 @@
 #include "vm/page.h"
+#include "vm/frame.h"
 #include <stdbool.h>
 #include <stddef.h>
-#include "vm/page.h"
 #include <string.h>
 #include "threads/palloc.h"
 #include "devices/block.h"
 #include "threads/pte.h"
-
-static uint32_t *active_pd (void);
-static void invalidate_pagedir (uint32_t *);
+#include "threads/thread.h"
+#include "filesys/filesys.h"
 
 /* Creates a new page directory that has mappings for kernel
    virtual addresses, but none for user virtual addresses.
@@ -17,27 +16,20 @@ static void invalidate_pagedir (uint32_t *);
 uint32_t *
 supdir_create (uint32_t vaddr) 
 {
-  uint64_t *pd = (uint64_t) get_user_page (vaddr);
-  if (pd != NULL)
-    memcpy (pd, init_page_dir, PGSIZE);
-  return pd;
+  return (uint32_t *) get_user_page ((uint8_t *)vaddr);
 }
 
-/* Destroys page directory PD, freeing all the pages it
-   references. */
+/* Useless at this point. */
 void
 supdir_destroy (uint64_t *pd) 
 {
-  uint64_t *pde;
-
   if (pd == NULL)
     return;
-
-  ASSERT (pd != init_page_dir);
   palloc_free_page (pd);
 }
 
-uint32_t *pde_get_pt_sup (uint32_t pde) {
+uint32_t *
+pde_get_pt_sup (uint32_t pde) {
   return ptov (pde & PTE_ADDR);
 }
 
@@ -64,7 +56,7 @@ lookup_sup_page (uint64_t *pd, const void *vaddr, bool create)
     {
       if (create)
         {
-          pt = get_user_page (vaddr);
+          pt = (uint64_t *) get_user_page ((uint8_t *) vaddr);
           if (pt == NULL) 
             return NULL; 
       
@@ -90,25 +82,20 @@ lookup_sup_page (uint64_t *pd, const void *vaddr, bool create)
    Returns true if successful, false if memory allocation
    failed. */
 bool
-supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_bytes);
+supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_bytes, uint8_t location)
 {
-  uint64_t *pte;
+  uint64_t *spte;
   uint64_t large_location;
   ASSERT (pg_ofs (vaddr) == 0);
   ASSERT (is_user_vaddr (vaddr));
-  ASSERT (pd != init_page_dir);
 
-  pte = lookup_sup_page (pd, vaddr, true);
+  spte = lookup_sup_page (pd, vaddr, true);
 
-  if (read_bytes == PGSIZE)
-  	large_location = FILE_SYS;
-  else
-  	large_location = ZERO_SYS;
-
-  if (pte != NULL) 
+  if (spte != NULL) 
     {
     	uint64_t large_read_bytes = read_bytes;
-      *pte = (large_read_bytes << 34) | (large_location << 32) | sector ;
+      large_location = (uint64_t) 0 | location;
+      *spte = (large_read_bytes << 34) | (large_location << 32) | sector;
       return true;
     }
   else
@@ -121,13 +108,13 @@ supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_b
 uint64_t
 supdir_get_sector (uint32_t *pd, const void *vaddr) 
 {
-  uint64_t *pte;
+  uint64_t *spte;
 
   ASSERT (is_user_vaddr (vaddr));
   
-  pte = lookup_sup_page (pd, vaddr, false);
-  if (pte != NULL)
-    return (uint64_t) *pte; //Make sure this gets the lowest 32 bits!!!!!!!!!!!
+  spte = lookup_sup_page (pd, vaddr, false);
+  if (spte != NULL)
+    return (uint64_t) *spte; //Make sure this gets the lowest 32 bits!!!!!!!!!!!
   else
     return NULL;
 }
@@ -139,40 +126,46 @@ supdir_get_sector (uint32_t *pd, const void *vaddr)
 void
 supdir_clear_page (uint32_t *pd, void *upage) 
 {
-  uint32_t *pte;
+  uint32_t *spte;
 
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (is_user_vaddr (upage));
 
-  pte = lookup_sup_page (pd, upage, false);
-  if (pte != NULL)
+  spte = lookup_sup_page (pd, upage, false);
+  if (spte != NULL)
     {
-      *pte = 0;
+      *spte = 0;
     }
 }
 
 bool
-load_page (uint32_t *addr)
+load_page (void *vpage, void *frame)
 {
-  uint64_t pte = lookup_sup_page (thread_current ()->suptable, addr, false);
-  if(pte != NULL)
+  uint64_t spte = lookup_sup_page (thread_current ()->suptable, vpage, false);
+  if (spte != NULL)
     {
-      uint8_t location = (pte >> 32) & 0x3;
-      uint32_t sector = (uint32_t) pte;
+      uint8_t location = (spte >> 32) & 0x3;
+      uint32_t read_bytes = spte >> 34;
+      uint32_t zero_bytes = PGSIZE - read_bytes;
+      ASSERT (read_bytes <= PGSIZE);
+      uint32_t sector = (uint32_t) spte;
+      struct block *swap_device = block_get_role (BLOCK_SWAP);
       
-      /*like fill this in please! thanks*/
-      if (location == ZERO_SYS)
+      if (location == FILE_SYS || location == SWAP_SYS)
         {
-
+          struct block *block_device = (location == FILE_SYS) ? fs_device : swap_device;
+          while (read_bytes > 0)
+            {
+              block_read (block_device, sector, frame);
+              sector++;
+              frame += BLOCK_SECTOR_SIZE;
+            }
         }
-      else if (location == FILE_SYS)
-        {
-
-        }
-      else
-        {
-
-        }
+      if (zero_bytes > 0)
+        memset (frame, 0, zero_bytes);
+      return true;
     }
+  else
+    return false;
 }
 

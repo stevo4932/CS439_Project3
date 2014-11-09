@@ -4,6 +4,7 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/pte.h"
 #include "userprog/syscall.h"
 #include "vm/frame.h"
 #include "vm/page.h"
@@ -154,15 +155,18 @@ page_fault (struct intr_frame *f)
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
        which fault_addr refers. */
+    void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
     if (not_present)
       {
-        if (!evict_page (fault_addr))
+        void *frame;
+        if (!(frame = evict_page (fault_page, false)))
           {
-            kill(f);
+            kill (f);
           }
-
+        else
+          {
+            load_page (fault_page, frame);
+          }
       }
-    
-
   //kill (f);
 }

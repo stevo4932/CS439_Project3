@@ -6,4 +6,5 @@ threads/thread.o: ../../threads/thread.c ../../threads/thread.h \
   ../../threads/interrupt.h ../../threads/intr-stubs.h \
   ../../threads/palloc.h ../../threads/malloc.h ../../threads/switch.h \
   ../../threads/synch.h ../../threads/vaddr.h ../../threads/loader.h \
+  ../../vm/page.h ../../devices/block.h ../../lib/inttypes.h \
   ../../userprog/process.h ../../threads/thread.h

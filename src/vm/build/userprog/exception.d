@@ -4,4 +4,6 @@ userprog/exception.o: ../../userprog/exception.c \
   ../../lib/stdbool.h ../../lib/stddef.h ../../lib/kernel/stdio.h \
   ../../userprog/gdt.h ../../threads/loader.h ../../threads/interrupt.h \
   ../../threads/thread.h ../../lib/kernel/list.h ../../threads/synch.h \
-  ../../userprog/syscall.h ../../filesys/file.h ../../filesys/off_t.h
+  ../../threads/pte.h ../../threads/vaddr.h ../../threads/loader.h \
+  ../../userprog/syscall.h ../../filesys/file.h ../../filesys/off_t.h \
+  ../../vm/frame.h ../../vm/page.h ../../devices/block.h
