@@ -393,7 +393,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  t->suptable = supdir_create (-1);
+  t->supdir = supdir_create (-1);
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
@@ -494,6 +494,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
  done:
   /* Edwin is driving */
   file_close (file);
+  //printf ("Finished loading %s\n", cmdline_copy);
   palloc_free_page (cmdline_copy);
   sema_up (&file_sema); 
   return success;
@@ -569,6 +570,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
+  //printf ("Loading segment starting at offset %d\n", ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
       /* Calculate how to fill this page.
@@ -586,13 +588,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       uint8_t location = (page_read_bytes == 0) ? 1 : 3;
       struct inode *inode = file_get_inode (file);
       uint32_t sector = byte_to_sector (inode, ofs);
+      //printf ("Offset %d maps to sector %d\n", ofs, sector);
       //uint32_t sector = inode->sector + (ofs / BLOCK_SECTOR_SIZE);
-      supdir_set_page (thread_current ()->suptable, upage, sector, page_read_bytes, location);
+      supdir_set_page (thread_current ()->supdir, upage, sector, page_read_bytes, location, writable);
 
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
+      ofs += PGSIZE;
     }
   return true;
 }
@@ -616,9 +620,7 @@ setup_stack (const char *cmdline, void **esp)
       }
       else
         palloc_free_page (kpage);
-
     }
-
   return success;
 }
 

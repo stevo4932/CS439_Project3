@@ -9,6 +9,7 @@
 #include "threads/io.h"
 #include "threads/interrupt.h"
 #include "threads/synch.h"
+#include "threads/thread.h"
 
 /* The code in this file is an interface to an ATA (IDE)
    controller.  It attempts to comply to [ATA-3]. */
@@ -352,6 +353,8 @@ ide_read (void *d_, block_sector_t sec_no, void *buffer)
   sema_down (&c->completion_wait);
   if (!wait_while_busy (d))
     PANIC ("%s: disk read failed, sector=%"PRDSNu, d->name, sec_no);
+  //if (sec_no % 100 == 0)
+    //printf ("%s is trying to read %d from file system.\n", thread_current ()->name, sec_no);
   input_sector (c, buffer);
   lock_release (&c->lock);
 }

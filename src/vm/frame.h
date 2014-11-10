@@ -7,6 +7,6 @@
 void frame_table_init (void);
 void *get_user_page (uint8_t *vaddr);
 void frame_table_free (void);
-void *evict_page (uint8_t *new_addr, bool write);
+void *evict_page (uint8_t *new_addr);
 
 #endif /* vm/frame.h */

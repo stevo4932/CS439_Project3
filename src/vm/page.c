@@ -2,12 +2,15 @@
 #include "vm/frame.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "devices/block.h"
 #include "threads/pte.h"
 #include "threads/thread.h"
 #include "filesys/filesys.h"
+#include "userprog/pagedir.h"
 
 /* Creates a new page directory that has mappings for kernel
    virtual addresses, but none for user virtual addresses.
@@ -21,16 +24,11 @@ supdir_create (uint32_t vaddr)
 
 /* Useless at this point. */
 void
-supdir_destroy (uint64_t *pd) 
+supdir_destroy (uint32_t *pd) 
 {
   if (pd == NULL)
     return;
   palloc_free_page (pd);
-}
-
-uint32_t *
-pde_get_pt_sup (uint32_t pde) {
-  return ptov (pde & PTE_ADDR);
 }
 
 /* Returns the address of the page table entry for virtual
@@ -39,10 +37,11 @@ pde_get_pt_sup (uint32_t pde) {
    on CREATE.  If CREATE is true, then a new page table is
    created and a pointer into it is returned.  Otherwise, a null
    pointer is returned. */
-static uint64_t *
-lookup_sup_page (uint64_t *pd, const void *vaddr, bool create)
+uint64_t *
+lookup_sup_page (uint32_t *pd, const void *vaddr, bool create)
 {
-  uint64_t *pt, *pde;
+  uint64_t *pt;
+  uint32_t *pde;
 
   ASSERT (pd != NULL);
 
@@ -59,15 +58,14 @@ lookup_sup_page (uint64_t *pd, const void *vaddr, bool create)
           pt = (uint64_t *) get_user_page ((uint8_t *) vaddr);
           if (pt == NULL) 
             return NULL; 
-      
-          *pde = pde_create (pt);
+          *pde = (uint32_t) pt;
         }
       else
         return NULL;
     }
 
   /* Return the page table entry. */
-  pt = pde_get_pt_sup (*pde);
+  pt = (uint64_t *) *pde;
   return &pt[pt_no (vaddr)];
 }
 
@@ -82,20 +80,20 @@ lookup_sup_page (uint64_t *pd, const void *vaddr, bool create)
    Returns true if successful, false if memory allocation
    failed. */
 bool
-supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_bytes, uint8_t location)
+supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_bytes, uint8_t location, bool writable)
 {
   uint64_t *spte;
-  uint64_t large_location;
   ASSERT (pg_ofs (vaddr) == 0);
   ASSERT (is_user_vaddr (vaddr));
 
-  spte = lookup_sup_page (pd, vaddr, true);
+  spte = lookup_sup_page (pd, (const void *) vaddr, true);
 
   if (spte != NULL) 
     {
     	uint64_t large_read_bytes = read_bytes;
-      large_location = (uint64_t) 0 | location;
-      *spte = (large_read_bytes << 34) | (large_location << 32) | sector;
+      uint64_t large_location = (uint64_t) 0 | location;
+      uint64_t large_writable = (uint64_t) 0 | writable;
+      *spte = (large_writable << 47) | (large_read_bytes << 34) | (large_location << 32) | sector;
       return true;
     }
   else
@@ -105,18 +103,11 @@ supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_b
 /* Looks up and returns the Sector number that corresponds to user virtual
    address VADDR in PD.   Returns a null pointer if
    VADDR is unmapped. */
-uint64_t
+block_sector_t
 supdir_get_sector (uint32_t *pd, const void *vaddr) 
 {
-  uint64_t *spte;
-
   ASSERT (is_user_vaddr (vaddr));
-  
-  spte = lookup_sup_page (pd, vaddr, false);
-  if (spte != NULL)
-    return (uint64_t) *spte; //Make sure this gets the lowest 32 bits!!!!!!!!!!!
-  else
-    return NULL;
+  return (block_sector_t) lookup_sup_page (pd, vaddr, false);
 }
 
 /* Marks user virtual page UPAGE "not present" in page
@@ -126,7 +117,7 @@ supdir_get_sector (uint32_t *pd, const void *vaddr)
 void
 supdir_clear_page (uint32_t *pd, void *upage) 
 {
-  uint32_t *spte;
+  uint64_t *spte;
 
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (is_user_vaddr (upage));
@@ -141,24 +132,33 @@ supdir_clear_page (uint32_t *pd, void *upage)
 bool
 load_page (void *vpage, void *frame)
 {
-  uint64_t spte = lookup_sup_page (thread_current ()->suptable, vpage, false);
+  uint64_t *spte = lookup_sup_page (thread_current ()->supdir, vpage, false);
   if (spte != NULL)
     {
-      uint8_t location = (spte >> 32) & 0x3;
-      uint32_t read_bytes = spte >> 34;
+      uint64_t entry = *spte;
+      uint8_t location = (entry >> 32) & 0x3;
+      int32_t read_bytes = (entry >> 34) & 0x1FFF;
       uint32_t zero_bytes = PGSIZE - read_bytes;
       ASSERT (read_bytes <= PGSIZE);
-      uint32_t sector = (uint32_t) spte;
+      uint32_t sector = (uint32_t) entry;
+      //printf ("About to attempt to read %d bytes from %s, starting at sector %d\n", read_bytes, location == FILE_SYS ? "file system " : "swap ", sector);
+      bool writable = (entry >> 47) & 1;
+      pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
+      //printf ("Mapped virtual page %p to physical frame %p\n", vpage, frame);
       struct block *swap_device = block_get_role (BLOCK_SWAP);
-      
       if (location == FILE_SYS || location == SWAP_SYS)
         {
           struct block *block_device = (location == FILE_SYS) ? fs_device : swap_device;
           while (read_bytes > 0)
             {
+              //printf ("About to block_read sector %d, %d bytes left to read\n", sector, read_bytes);
               block_read (block_device, sector, frame);
               sector++;
-              frame += BLOCK_SECTOR_SIZE;
+              if (read_bytes >= BLOCK_SECTOR_SIZE)
+                frame += BLOCK_SECTOR_SIZE;
+              else
+                frame += read_bytes;
+              read_bytes -= BLOCK_SECTOR_SIZE;
             }
         }
       if (zero_bytes > 0)
@@ -168,4 +168,3 @@ load_page (void *vpage, void *frame)
   else
     return false;
 }
-

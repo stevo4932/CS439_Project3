@@ -3,6 +3,7 @@
 #include "userprog/pagedir.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include "threads/init.h"
 #include "threads/pte.h"
@@ -37,7 +38,7 @@ get_user_page (uint8_t *vaddr)
 		return page;
 	uint64_t bigv;
 	/*store the page address into frame table*/
-	if (vaddr == -1)
+	if ((int32_t) vaddr == -1)
 		bigv = (uint64_t) 0 | (int) page;
 	else
 		bigv = (uint64_t) 0 | (int) vaddr;
@@ -47,18 +48,16 @@ get_user_page (uint8_t *vaddr)
 
 /* evict a page using FIFO */
 void *
-evict_page (uint8_t *new_addr, bool write)
+evict_page (uint8_t *new_addr)
 {
 	uint32_t old_addr = (ft[evict_index] >> 32) ;
-	struct thread *t = (struct thread *) ft[evict_index];
-	uint32_t frame_addr = pagedir_get_page (t->pagedir, old_addr);
+	//struct thread *t = (struct thread *) (ft[evict_index] & (uint32_t)(-1));
+	struct thread *t = (struct thread *) (uint32_t) ft[evict_index];
+	uint32_t frame_addr = (uint32_t) pagedir_get_page (t->pagedir, (const void *) old_addr);
 	uint64_t big_addr = (uint64_t) 0 | (int) new_addr;
-	pagedir_clear_page (t->pagedir, old_addr);
+	pagedir_clear_page (t->pagedir, (void *) old_addr);
 	ft[evict_index++] = (big_addr << 32) | (int) thread_current ();
-	if (pagedir_set_page (thread_current ()->pagedir, new_addr, frame_addr, write))
-		return frame_addr;
-	else
-		return NULL;
+	return (void *) frame_addr;
 }
 
 void

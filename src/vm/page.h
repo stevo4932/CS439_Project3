@@ -10,11 +10,11 @@
 #define ZERO_SYS 1
 
 uint32_t *supdir_create (uint32_t vaddr);
-void supdir_destroy (uint64_t *pd);
-uint32_t *pde_get_pt_sup (uint32_t pde);
+void supdir_destroy (uint32_t *pd);
 bool sup_page_free (void);
-bool supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_bytes, uint8_t location);
-uint64_t supdir_get_sector (uint32_t *pd, const void *vaddr);
+uint64_t *lookup_sup_page (uint32_t *pd, const void *vaddr, bool create);
+bool supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_bytes, uint8_t location, bool writable);
+block_sector_t supdir_get_sector (uint32_t *pd, const void *vaddr);
 void supdir_clear_page (uint32_t *pd, void *upage);
 bool load_page (void *vpage, void *frame);
 

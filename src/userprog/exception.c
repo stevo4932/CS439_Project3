@@ -11,7 +11,6 @@
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
-static void kill_exit (void);
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
 
@@ -155,18 +154,23 @@ page_fault (struct intr_frame *f)
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
        which fault_addr refers. */
+    //printf ("Page fault at %p\n", fault_addr);
     void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
     if (not_present)
       {
-        void *frame;
-        if (!(frame = evict_page (fault_page, false)))
+        uint32_t *supdir = thread_current ()->supdir;
+        uint64_t *spte = lookup_sup_page (supdir, fault_page, false);
+        if (spte == NULL)
+          kill (f);
+        void *frame = get_user_page (fault_page);
+        if (frame == NULL)
           {
-            kill (f);
+            frame = evict_page (fault_page);
+            if (frame == NULL)
+              kill (f);
           }
-        else
-          {
-            load_page (fault_page, frame);
-          }
+        //printf ("About to load page.\n");
+        load_page (fault_page, frame);
       }
   //kill (f);
 }
