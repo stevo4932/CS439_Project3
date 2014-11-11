@@ -11,7 +11,6 @@
 #include "threads/vaddr.h" 
 #include "threads/thread.h"
 
-
 static uint64_t *ft;
 static int ft_index;
 static int evict_index;
@@ -19,7 +18,8 @@ static int evict_index;
 void 
 frame_table_init ()
 {
-	ft = (uint64_t *) palloc_get_page (PAL_USER | PAL_ZERO);
+	/* Get enough pages from palloc to be able to store <?> entries in the frame table. */
+	ft = (uint64_t *) palloc_get_multiple (PAL_ZERO, 16);
 	ft_index = 0;
 	evict_index = 0;
 }
@@ -27,7 +27,7 @@ frame_table_init ()
 
 /* Obtains an unused frame for the user.
   If one is free, add the address to the frame table
-  and return it to the user. */
+  and return kernel virtual address of frame to the user. */
 void *
 get_user_page (uint8_t *vaddr)
 {
@@ -63,6 +63,17 @@ evict_page (uint8_t *new_addr)
 void
 frame_table_free ()
 {
-	palloc_free_page (ft);
+	palloc_free_multiple (ft);
 }
 
+/*
+bool
+free_user_page (uint8_t *vaddr)
+{
+	int i;
+	for (i = 0; i < ft_index; i++)
+	  {
+
+		}
+}
+*/
