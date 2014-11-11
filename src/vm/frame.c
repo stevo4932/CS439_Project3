@@ -73,7 +73,7 @@ free_user_page (uint8_t *vaddr)
 	int i;
 	for (i = 0; i < ft_index; i++)
 	  {
-
+			
 		}
 }
 */

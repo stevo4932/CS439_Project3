@@ -573,6 +573,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   //printf ("Loading segment starting at offset %d\n", ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
+      //printf ("%d bytes left to read.\n", read_bytes);
       /* Calculate how to fill this page.
          We will read PAGE_READ_BYTES bytes from FILE
          and zero the final PAGE_ZERO_BYTES bytes. */
@@ -585,13 +586,18 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       //   return false;
       
       //uint8_t location = (page_read_bytes == 0) ? (uint8_t) ZERO_SYS : (uint8_t) FILE_SYS;
-      uint8_t location = (page_read_bytes == 0) ? 1 : 3;
-      struct inode *inode = file_get_inode (file);
-      uint32_t sector = byte_to_sector (inode, ofs);
-      //printf ("Offset %d maps to sector %d\n", ofs, sector);
-      //uint32_t sector = inode->sector + (ofs / BLOCK_SECTOR_SIZE);
-      supdir_set_page (thread_current ()->supdir, upage, sector, page_read_bytes, location, writable);
-
+      if (page_read_bytes > 0)
+        {
+          uint8_t location = (page_read_bytes == 0) ? 1 : 3;
+          struct inode *inode = file_get_inode (file);
+          ASSERT (inode != NULL);
+          uint32_t sector = byte_to_sector (inode, ofs);
+          //printf ("Offset %d maps to sector %d\n", ofs, sector);
+          //uint32_t sector = inode->sector + (ofs / BLOCK_SECTOR_SIZE);
+          supdir_set_page (thread_current ()->supdir, upage, sector, page_read_bytes, location, writable);
+        }
+      else
+        supdir_set_page (thread_current ()->supdir, upage, 0, 0, ZERO_SYS, writable);
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;

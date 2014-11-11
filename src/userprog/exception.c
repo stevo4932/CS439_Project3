@@ -2,7 +2,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include "userprog/gdt.h"
+#include "userprog/pagedir.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/pte.h"
@@ -157,9 +159,11 @@ page_fault (struct intr_frame *f)
        which fault_addr refers. */
     //printf ("Page fault at %p\n", fault_addr);
     //printf ("ESP = %p\n", f->esp);
-    void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
-    if (not_present)
-      {     
+    //void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
+    if (user && not_present)
+      {
+        page_in (fault_addr, f);
+        /*
         uint32_t *supdir = thread_current ()->supdir;
         uint32_t *stack_pt = f->esp;
         uint32_t *stack_pt_round = (uint32_t *) ((uint32_t) f->esp & PTE_ADDR);
@@ -179,6 +183,36 @@ page_fault (struct intr_frame *f)
           load_stack_pg (fault_page, frame);
         else
           load_page (fault_page, frame);
+        */
       }
+    else
+    {
+      kill (f);
+    }
   //kill (f);
+}
+
+void
+page_in (void *fault_addr, struct intr_frame *f)
+{
+  //printf ("Attempting to load virtual page containing %p\n", fault_addr);
+  void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
+  uint32_t *supdir = thread_current ()->supdir;
+  uint32_t *stack_pt = f->esp;
+  uint32_t *stack_pt_round = (uint32_t *) ((uint32_t) f->esp & PTE_ADDR);
+  bool is_stack_page = (fault_addr + 32) == stack_pt || (fault_addr + 4) == stack_pt || fault_addr == stack_pt || stack_pt_round == fault_page;
+  if (!is_stack_page)
+    if (!lookup_sup_page (supdir, fault_page, false))
+      kill (f);
+  void *frame = get_user_page (fault_page);
+  if (frame == NULL)
+    if (!(frame = evict_page (fault_page)))
+      kill (f);
+  if (is_stack_page)
+    {
+      memset (frame, 0, PGSIZE);
+      pagedir_set_page (thread_current ()->pagedir, fault_page, frame, true);
+    }
+  else
+    load_page (fault_page, frame);
 }

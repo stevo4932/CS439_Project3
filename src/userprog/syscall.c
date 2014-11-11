@@ -7,6 +7,7 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
+#include "userprog/exception.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "filesys/filesys.h"
@@ -141,13 +142,14 @@ static bool
 is_pt_valid (const void *pt, struct intr_frame *f)
 {
   /* Scott is driving now. */
-	if (pt == NULL || !is_user_vaddr (pt) || pagedir_get_page (thread_current ()->pagedir, pt) == NULL)
+  if (pt == NULL || !is_user_vaddr (pt))
     {
-      /* Bad pointer! */
       sys_exit (-1, f);
       return false;
     }
-	return true;
+  else if (pagedir_get_page (thread_current ()->pagedir, pt) == NULL)
+    page_in ((void *)pt, f);
+  return true;
 }
 
 /* Helper function that is used in syscall.c, process.c, and exception.c to close all

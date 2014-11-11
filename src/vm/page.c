@@ -19,6 +19,7 @@
 uint32_t *
 supdir_create (uint32_t vaddr) 
 {
+  /* Should this be a page from the kernel pool, perhaps? */
   return (uint32_t *) get_user_page ((uint8_t *)vaddr);
 }
 
@@ -93,7 +94,7 @@ supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_b
     	uint64_t large_read_bytes = read_bytes;
       uint64_t large_location = (uint64_t) 0 | location;
       uint64_t large_writable = (uint64_t) 0 | writable;
-      *spte = (large_writable << 47) | (large_read_bytes << 34) | (large_location << 32) | sector;
+      *spte = (large_writable << WRITABLE_SHIFT) | (large_read_bytes << READ_BYTES_SHIFT) | (large_location << LOC_SHIFT) | sector;
       return true;
     }
   else
@@ -136,13 +137,12 @@ load_page (void *vpage, void *frame)
   if (spte != NULL)
     {
       uint64_t entry = *spte;
-      uint8_t location = (entry >> 32) & 0x3;
-      int32_t read_bytes = (entry >> 34) & 0x1FFF;
+      uint8_t location = location_from_spte (entry);
+      int32_t read_bytes = (int32_t) read_bytes_from_spte (entry);
       uint32_t zero_bytes = PGSIZE - read_bytes;
-      ASSERT (read_bytes <= PGSIZE);
-      uint32_t sector = (uint32_t) entry;
+      uint32_t sector = sector_from_spte (entry);
       //printf ("About to attempt to read %d bytes from %s, starting at sector %d\n", read_bytes, location == FILE_SYS ? "file system " : "swap ", sector);
-      bool writable = (entry >> 47) & 1;
+      bool writable = writable_from_spte (entry);
       pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
       //printf ("Mapped virtual page %p to physical frame %p\n", vpage, frame);
       struct block *swap_device = block_get_role (BLOCK_SWAP);
@@ -167,6 +167,30 @@ load_page (void *vpage, void *frame)
     }
   else
     return false;
+}
+
+uint8_t
+location_from_spte (uint64_t entry)
+{
+  return (entry >> LOC_SHIFT) & LOC_MASK;
+}
+
+uint32_t
+read_bytes_from_spte (uint64_t entry)
+{
+  return (entry >> READ_BYTES_SHIFT) & READ_BYTES_MASK;
+}
+
+uint32_t
+sector_from_spte (uint64_t entry)
+{
+  return (uint32_t) entry;
+}
+
+bool
+writable_from_spte (uint64_t entry)
+{
+  return (entry >> WRITABLE_SHIFT) & WRITABLE_MASK;
 }
 
 bool 
