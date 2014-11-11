@@ -1,6 +1,7 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -155,22 +156,29 @@ page_fault (struct intr_frame *f)
        body, and replace it with code that brings in the page to
        which fault_addr refers. */
     //printf ("Page fault at %p\n", fault_addr);
+    //printf ("ESP = %p\n", f->esp);
     void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
     if (not_present)
-      {
+      {     
         uint32_t *supdir = thread_current ()->supdir;
-        uint64_t *spte = lookup_sup_page (supdir, fault_page, false);
-        if (spte == NULL)
-          kill (f);
+        uint32_t *stack_pt = f->esp;
+        uint32_t *stack_pt_round = (uint32_t *) ((uint32_t) f->esp & PTE_ADDR);
+        bool is_stack_page = user && ((fault_addr + 32) == stack_pt || (fault_addr + 4) == stack_pt || fault_addr == stack_pt || stack_pt_round == fault_page);
+        //if fault is due to stack, skip sup table look up.
+        //if (is_stack_page)
+          //printf("It's a stack page.\n");
+        if (!is_stack_page)
+          if (!lookup_sup_page (supdir, fault_page, false))
+            kill (f);
         void *frame = get_user_page (fault_page);
         if (frame == NULL)
-          {
-            frame = evict_page (fault_page);
-            if (frame == NULL)
-              kill (f);
-          }
+          if (!(frame = evict_page (fault_page)))
+            kill (f);
         //printf ("About to load page.\n");
-        load_page (fault_page, frame);
+        if (is_stack_page)
+          load_stack_pg (fault_page, frame);
+        else
+          load_page (fault_page, frame);
       }
   //kill (f);
 }

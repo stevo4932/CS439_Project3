@@ -63,7 +63,7 @@ evict_page (uint8_t *new_addr)
 void
 frame_table_free ()
 {
-	palloc_free_multiple (ft);
+	palloc_free_multiple (ft, 16);
 }
 
 /*

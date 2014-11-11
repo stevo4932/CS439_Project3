@@ -168,3 +168,10 @@ load_page (void *vpage, void *frame)
   else
     return false;
 }
+
+bool 
+load_stack_pg (void *vpage, void *frame)
+{
+  memset (frame, 0, PGSIZE);
+  return pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, true);
+}
