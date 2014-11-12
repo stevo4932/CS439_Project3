@@ -377,7 +377,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   bool success = false;
   int i;
   int cmd_len;
-//ISSUE!!!!!!!!!!!!!!!!!!!!
+
   char *cmdline_copy = palloc_get_page (0);
   strlcpy (cmdline_copy, cmdline, strnlen (cmdline, MAX_CMD_LEN) + 1);
   char *save_ptr;
@@ -570,7 +570,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
-  //printf ("Loading segment starting at offset %d\n", ofs);
+  printf ("Loading %s segment starting at offset %d, virtual page %p\n", writable ? "writable" : "read-only", ofs, upage);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
       //printf ("%d bytes left to read.\n", read_bytes);

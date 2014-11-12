@@ -148,7 +148,10 @@ is_pt_valid (const void *pt, struct intr_frame *f)
       return false;
     }
   else if (pagedir_get_page (thread_current ()->pagedir, pt) == NULL)
-    page_in ((void *)pt, f);
+    {
+      //printf ("In is_pt_valid, address was unmapped, attempting to page in.\n");
+      page_in ((void *)pt, f);
+    }
   return true;
 }
 
@@ -266,6 +269,7 @@ sys_exit (int status, struct intr_frame *f)
 static void 
 sys_open (const char *file_name, struct intr_frame *f)
 {
+  //printf ("Opening %s\n", file_name);
   /* Edwin is driving. */
   sema_down (&file_sema);
   f->eax = -1;
@@ -285,6 +289,7 @@ sys_open (const char *file_name, struct intr_frame *f)
         }
     }
   sema_up (&file_sema);
+  //printf ("Opened %s\n", file_name);
 }
 
 /* Attempts to write the contents of BUFFER into the file denoted by the given file descriptor.
@@ -391,6 +396,7 @@ static void
 sys_read (int fd, void *buffer, unsigned size, struct intr_frame *f)
 {
   /* Heather is driving. */
+  //printf ("Trying to read from fd %d\n", fd);
   struct file *file;
   struct thread *t = thread_current ();
   if (fd == 0)
@@ -411,8 +417,17 @@ sys_read (int fd, void *buffer, unsigned size, struct intr_frame *f)
     }
   else if (fd < 1024 && fd >= 2 && (file = t->files[fd]))
   {
+    //printf ("In sys_read :D\n");
+    void *buffer_;
+    for (buffer_ = (void *) ((uint32_t) buffer & 0xfffff000); (unsigned) buffer_ < (unsigned) buffer + size; buffer_ += PGSIZE)
+    {
+      //printf ("Validating buffer at %p\n", buffer_);
+      is_pt_valid (buffer_, f);
+      //printf ("made it past is_pt_valid!\n");
+    }
     sema_down (&file_sema);
     f->eax = (int)file_read (file, buffer, size);
+    //printf ("not reached\n");
     sema_up (&file_sema);
   }
   else

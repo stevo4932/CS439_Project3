@@ -19,8 +19,7 @@
 uint32_t *
 supdir_create (uint32_t vaddr) 
 {
-  /* Should this be a page from the kernel pool, perhaps? */
-  return (uint32_t *) get_user_page ((uint8_t *)vaddr);
+  return (uint32_t *) palloc_get_page (0);
 }
 
 /* Useless at this point. */
@@ -41,6 +40,7 @@ supdir_destroy (uint32_t *pd)
 uint64_t *
 lookup_sup_page (uint32_t *pd, const void *vaddr, bool create)
 {
+
   uint64_t *pt;
   uint32_t *pde;
 
@@ -56,18 +56,36 @@ lookup_sup_page (uint32_t *pd, const void *vaddr, bool create)
     {
       if (create)
         {
-          pt = (uint64_t *) get_user_page ((uint8_t *) vaddr);
+          pt = (uint64_t *) palloc_get_page (0);
+          
           if (pt == NULL) 
+          {
+            printf ("Could not palloc a supplemental page table.\n");
             return NULL; 
+          }
+            
+          
           *pde = (uint32_t) pt;
+          
         }
       else
-        return NULL;
+        {
+          printf("Did not find anything, sorry!\n");
+          return NULL;
+        }
+        
     }
 
   /* Return the page table entry. */
+    /*
   pt = (uint64_t *) *pde;
-  return &pt[pt_no (vaddr)];
+  printf ("Lookup_sup_page found entry %llx\n", pt[pt_no (vaddr)]);
+
+  return &pt[pt_no (vaddr)]; */
+  pt = (uint64_t *) (*pde + (8 * pt_no (vaddr)));
+  
+  printf ("Lookup_sup_page found entry %llx\n", *pt);
+  return pt;
 }
 
 /* Adds a mapping in page directory PD from user virtual page
@@ -88,6 +106,7 @@ supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_b
   ASSERT (is_user_vaddr (vaddr));
 
   spte = lookup_sup_page (pd, (const void *) vaddr, true);
+  //printf ("Adding to suptable, virtual address %p, which is %s\n", vaddr, writable ? "writable" : "read-only");
 
   if (spte != NULL) 
     {
@@ -95,6 +114,11 @@ supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_b
       uint64_t large_location = (uint64_t) 0 | location;
       uint64_t large_writable = (uint64_t) 0 | writable;
       *spte = (large_writable << WRITABLE_SHIFT) | (large_read_bytes << READ_BYTES_SHIFT) | (large_location << LOC_SHIFT) | sector;
+      //printf ("ENTRY %x, virtual address %p, sector %d, %s\n", *spte, vaddr, sector, writable ? "writable" : "read-only");
+      //printf ("SET PAGE %llx for vaddr %p\n", *spte, vaddr);
+      ASSERT (writable == writable_from_spte (*spte));
+      //printf ("supdir_set_page created entry %llx\n", *spte);
+      printf ("After setting page, for vaddr %p, looking up the page yields entry %llx\n", vaddr, *lookup_sup_page (pd, vaddr, false));
       return true;
     }
   else
@@ -134,6 +158,7 @@ bool
 load_page (void *vpage, void *frame)
 {
   uint64_t *spte = lookup_sup_page (thread_current ()->supdir, vpage, false);
+  printf ("LOAD PAGE %llx for vaddr %p for thread %s\n", *spte, vpage, thread_current ()->name);
   if (spte != NULL)
     {
       uint64_t entry = *spte;
@@ -142,27 +167,29 @@ load_page (void *vpage, void *frame)
       uint32_t zero_bytes = PGSIZE - read_bytes;
       uint32_t sector = sector_from_spte (entry);
       //printf ("About to attempt to read %d bytes from %s, starting at sector %d\n", read_bytes, location == FILE_SYS ? "file system " : "swap ", sector);
-      bool writable = writable_from_spte (entry);
-      pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
-      //printf ("Mapped virtual page %p to physical frame %p\n", vpage, frame);
+      //printf ("LOAD PAGE %llx for vaddr %p\n", entry, vpage);
+      //printf ("Entry %a: Mapped %s virtual page %p to physical frame %p\n", entry, writable ? "writable" : "read-only", vpage, frame);
       struct block *swap_device = block_get_role (BLOCK_SWAP);
+      void *frame_ = frame;
       if (location == FILE_SYS || location == SWAP_SYS)
         {
           struct block *block_device = (location == FILE_SYS) ? fs_device : swap_device;
           while (read_bytes > 0)
             {
               //printf ("About to block_read sector %d, %d bytes left to read\n", sector, read_bytes);
-              block_read (block_device, sector, frame);
+              block_read (block_device, sector, frame_);
               sector++;
               if (read_bytes >= BLOCK_SECTOR_SIZE)
-                frame += BLOCK_SECTOR_SIZE;
+                frame_ += BLOCK_SECTOR_SIZE;
               else
-                frame += read_bytes;
+                frame_ += read_bytes;
               read_bytes -= BLOCK_SECTOR_SIZE;
             }
         }
       if (zero_bytes > 0)
-        memset (frame, 0, zero_bytes);
+        memset (frame_, 0, zero_bytes);
+      bool writable = writable_from_spte (entry);
+      pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
       return true;
     }
   else
