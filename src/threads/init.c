@@ -136,7 +136,7 @@ main (void)
 
   /* Finish up. */
 #ifdef USERPROG
-  frame_table_free ();
+  frame_table_destroy ();
 #endif
   shutdown ();
   thread_exit ();

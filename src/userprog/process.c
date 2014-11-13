@@ -393,7 +393,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  t->supdir = supdir_create (-1);
+  t->supdir = supdir_create ();
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
@@ -579,6 +579,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = (read_bytes < PGSIZE) ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
+      //printf ("%d bytes left to read, %d zero bytes remaining\n", read_bytes, zero_bytes);
 
       /* Get a page of memory. */
       // uint8_t *kpage = get_user_page (upage);
@@ -592,12 +593,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           struct inode *inode = file_get_inode (file);
           ASSERT (inode != NULL);
           uint32_t sector = byte_to_sector (inode, ofs);
-          //printf ("Offset %d maps to sector %d\n", ofs, sector);
+          //printf ("Read_bytes = %d, offset %d maps to sector %d\n", page_read_bytes, ofs, sector);
           //uint32_t sector = inode->sector + (ofs / BLOCK_SECTOR_SIZE);
           supdir_set_page (thread_current ()->supdir, upage, sector, page_read_bytes, location, writable);
         }
       else
-        supdir_set_page (thread_current ()->supdir, upage, 0, 0, ZERO_SYS, writable);
+        {
+          supdir_set_page (thread_current ()->supdir, upage, 0, 0, ZERO_SYS, writable);
+        }
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;

@@ -147,7 +147,7 @@ page_fault (struct intr_frame *f)
        be assured of reading CR2 before it changed). */
     intr_enable ();
 
-    printf ("Page fault at %p\n", fault_addr);
+    //printf ("Page fault at %p\n", fault_addr);
 
     /* Count page faults. */
     page_fault_cnt++;
@@ -156,25 +156,24 @@ page_fault (struct intr_frame *f)
     not_present = (f->error_code & PF_P) == 0;
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
-
+/*
     if (user)
       printf ("User page fault\n");
     if (write)
       printf ("Bad write\n");
     if (not_present)
       printf ("Page not present.\n");
-
+*/
     void *pd = thread_current ()->pagedir;
     uint32_t *pte = lookup_page (pd, fault_addr, false);
-    if (pte == NULL)
-      printf ("PTE not found\n");
+    /*if (pte == NULL)
+      //printf ("PTE not found\n");
     else
       {
         bool pte_write = *pte & PTE_W;
-        printf ("PTE says %p.\n", *pte);
+        //printf ("PTE says %x.\n", *pte);
 
-      }
-    
+      }    */
 
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
@@ -223,14 +222,14 @@ page_in (void *fault_addr, struct intr_frame *f)
 {
   //printf ("Attempting to load virtual page containing %p\n", fault_addr);
   void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
-  uint32_t *supdir = thread_current ()->supdir;
+  struct hash *supdir = thread_current ()->supdir;
   uint32_t *stack_pt = f->esp;
-  printf ("Fault address is %p, ESP is %p\n", fault_addr, stack_pt);
+  //printf ("Fault address is %p, ESP is %p\n", fault_addr, stack_pt);
   uint32_t *stack_pt_round = (uint32_t *) ((uint32_t) f->esp & PTE_ADDR);
   //bool is_stack_page = (fault_addr + 32) == stack_pt || (fault_addr + 4) == stack_pt || fault_addr == stack_pt || stack_pt_round == fault_page;
   bool is_stack_page = fault_addr < PHYS_BASE && fault_addr >= ((void *) stack_pt - 32);
   if (!is_stack_page)
-    if (!lookup_sup_page (supdir, fault_page, false))
+    if (!lookup_sup_page (supdir, fault_page))
       {
         printf ("Killing %s because fault address isn't in a stack page and isn't in sup table.\n", thread_current ()->name);
         kill (f);

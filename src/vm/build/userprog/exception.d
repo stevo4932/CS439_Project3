@@ -7,4 +7,5 @@ userprog/exception.o: ../../userprog/exception.c \
   ../../threads/thread.h ../../lib/kernel/list.h ../../threads/synch.h \
   ../../threads/pte.h ../../threads/vaddr.h ../../threads/loader.h \
   ../../userprog/syscall.h ../../filesys/file.h ../../filesys/off_t.h \
-  ../../vm/frame.h ../../vm/page.h ../../devices/block.h
+  ../../vm/frame.h ../../lib/kernel/hash.h ../../lib/kernel/list.h \
+  ../../vm/page.h ../../devices/block.h

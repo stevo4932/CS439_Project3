@@ -3,10 +3,18 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <hash.h>
+
+struct ft_entry
+{
+	struct hash_elem elem;
+	struct thread *thread;
+	uint32_t vaddr;
+};
 
 void frame_table_init (void);
 void *get_user_page (uint8_t *vaddr);
-void frame_table_free (void);
+void frame_table_destroy (void);
 void *evict_page (uint8_t *new_addr);
 
 #endif /* vm/frame.h */

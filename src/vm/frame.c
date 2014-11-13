@@ -7,23 +7,21 @@
 #include <string.h>
 #include "threads/init.h"
 #include "threads/pte.h"
+#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/vaddr.h" 
 #include "threads/thread.h"
 
-static uint64_t *ft;
-static int ft_index;
-static int evict_index;
+static struct hash *ft;
+unsigned frame_hash (const struct hash_elem *e, void *aux UNUSED);
+bool frame_less_than (const struct hash_elem *elem_a, const struct hash_elem *elem_b, void *aux UNUSED);
 
 void 
 frame_table_init ()
 {
-	/* Get enough pages from palloc to be able to store <?> entries in the frame table. */
-	ft = (uint64_t *) palloc_get_multiple (PAL_ZERO, 16);
-	ft_index = 0;
-	evict_index = 0;
+	ft = malloc (sizeof (struct hash));
+  hash_init (ft, (hash_hash_func *) frame_hash, (hash_less_func *) frame_less_than, NULL);
 }
-
 
 /* Obtains an unused frame for the user.
   If one is free, add the address to the frame table
@@ -36,21 +34,33 @@ get_user_page (uint8_t *vaddr)
 	if (!(page = palloc_get_page (PAL_USER | PAL_ZERO)))
 		/*No page avalible. Return NULL FOR NOW. WILL NEED TO CHAGE !!!!!!!!!!!*/
 		return page;
-	uint64_t bigv;
 	/*store the page address into frame table*/
-	if ((int32_t) vaddr == -1)
-		bigv = (uint64_t) 0 | (int) page;
-	else
-		bigv = (uint64_t) 0 | (int) vaddr;
-	ft[ft_index++] = (bigv << 32) | (int) thread_current ();
+	struct ft_entry *entry = malloc (sizeof (struct ft_entry));
+	entry->vaddr = (uint32_t) vaddr;
+	entry->thread = thread_current ();
+	hash_replace (ft, &entry->elem);
 	return page;
 }
 
-/* evict a page using FIFO */
+/* evict a page using hash iterator */
 void *
 evict_page (uint8_t *new_addr)
 {
-	uint32_t old_addr = (ft[evict_index] >> 32) ;
+	struct hash_iterator iterator;
+	hash_first (&iterator, ft);
+	struct hash_elem *e = hash_next (&iterator);
+	struct ft_entry *entry = hash_entry (e, struct ft_entry, elem);
+	struct thread *victim = entry->thread;
+	void *old_addr = (void *) entry->vaddr;
+	void *frame_addr = pagedir_get_page (victim->pagedir, old_addr);
+	pagedir_clear_page (victim->pagedir, old_addr);
+	hash_delete (ft, e);
+	entry->thread = thread_current ();
+	entry->vaddr = new_addr;
+	hash_replace (ft, e);
+	/*
+	uint32_t old_addr = (ft[evict_index] >> 32);
+	printf ("Old addr: %x\n", old_addr);
 	//struct thread *t = (struct thread *) (ft[evict_index] & (uint32_t)(-1));
 	struct thread *t = (struct thread *) (uint32_t) ft[evict_index];
 	uint32_t frame_addr = (uint32_t) pagedir_get_page (t->pagedir, (const void *) old_addr);
@@ -58,22 +68,31 @@ evict_page (uint8_t *new_addr)
 	pagedir_clear_page (t->pagedir, (void *) old_addr);
 	ft[evict_index++] = (big_addr << 32) | (int) thread_current ();
 	return (void *) frame_addr;
+	*/
 }
 
 void
-frame_table_free ()
+frame_table_destroy ()
 {
-	palloc_free_multiple (ft, 16);
+	hash_destroy (ft, NULL);
+  free (ft);
 }
 
-/*
-bool
-free_user_page (uint8_t *vaddr)
+/* Returns a hash value for entry e. */
+unsigned
+frame_hash (const struct hash_elem *e, void *aux UNUSED)
 {
-	int i;
-	for (i = 0; i < ft_index; i++)
-	  {
-			
-		}
+  const struct ft_entry *entry = hash_entry (e, struct ft_entry, elem);
+  /* change hash to be vaddr and thread */
+  return hash_bytes (&entry->vaddr, sizeof entry->vaddr);
 }
-*/
+
+/* Returns true if page a precedes page b. */
+bool
+frame_less_than (const struct hash_elem *elem_a, const struct hash_elem *elem_b, void *aux UNUSED)
+{
+  struct ft_entry *entry_a = hash_entry (elem_a, struct ft_entry, elem);
+  struct ft_entry *entry_b = hash_entry (elem_b, struct ft_entry, elem);
+
+  return (entry_a->vaddr < entry_b->vaddr) && ((uint32_t) entry_a->thread < (uint32_t) entry_b->thread);
+}

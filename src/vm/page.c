@@ -16,19 +16,23 @@
    virtual addresses, but none for user virtual addresses.
    Returns the new page directory, or a null pointer if memory
    allocation fails. */
-uint32_t *
-supdir_create (uint32_t vaddr) 
+struct hash *
+supdir_create (void) 
 {
-  return (uint32_t *) palloc_get_page (0);
+  //return (uint32_t *) palloc_get_page (0);
+  struct hash *hash_table = malloc (sizeof (struct hash));
+  hash_init (hash_table, (hash_hash_func *) hash, (hash_less_func *) less_than, NULL);
+  return hash_table;
 }
 
 /* Useless at this point. */
 void
-supdir_destroy (uint32_t *pd) 
+supdir_destroy (struct hash *table) 
 {
-  if (pd == NULL)
+  if (table == NULL)
     return;
-  palloc_free_page (pd);
+  hash_destroy (table, NULL);
+  free (table);
 }
 
 /* Returns the address of the page table entry for virtual
@@ -37,26 +41,33 @@ supdir_destroy (uint32_t *pd)
    on CREATE.  If CREATE is true, then a new page table is
    created and a pointer into it is returned.  Otherwise, a null
    pointer is returned. */
-uint64_t *
-lookup_sup_page (uint32_t *pd, const void *vaddr, bool create)
+struct spte *
+lookup_sup_page (struct hash *table, const void *vaddr)
 {
+  struct spte entry;
+  struct hash_elem *e;
 
+  entry.vaddr = (uint32_t) vaddr;
+  e = hash_find (table, &entry.elem);
+  return (e != NULL) ? hash_entry (e, struct spte, elem) : NULL;
+  /*
   uint64_t *pt;
   uint32_t *pde;
 
   ASSERT (pd != NULL);
 
   /* Shouldn't create new kernel virtual mappings. */
-  ASSERT (!create || is_user_vaddr (vaddr));
+  //ASSERT (!create || is_user_vaddr (vaddr));
 
   /* Check for a page table for VADDR.
      If one is missing, create one if requested. */
+  /*
   pde = pd + pd_no (vaddr);
   if (*pde == 0) 
     {
       if (create)
         {
-          pt = (uint64_t *) palloc_get_page (0);
+          pt = (uint64_t *) palloc_get_page (PAL_ZERO | PAL_ASSERT);
           
           if (pt == NULL) 
           {
@@ -82,25 +93,30 @@ lookup_sup_page (uint32_t *pd, const void *vaddr, bool create)
   printf ("Lookup_sup_page found entry %llx\n", pt[pt_no (vaddr)]);
 
   return &pt[pt_no (vaddr)]; */
-  pt = (uint64_t *) (*pde + (8 * pt_no (vaddr)));
+  //pt = (uint64_t *) (*pde + (8 * pt_no (vaddr)));
   
-  printf ("Lookup_sup_page found entry %llx\n", *pt);
-  return pt;
+  //printf ("Lookup_sup_page found entry %llx\n", *pt);
+  //return pt;
 }
 
-/* Adds a mapping in page directory PD from user virtual page
-   UPAGE to the physical frame identified by kernel virtual
-   address KPAGE.
-   UPAGE must not already be mapped.
-   KPAGE should probably be a page obtained from the user pool
-   with palloc_get_page().
-   If WRITABLE is true, the new page is read/write;
-   otherwise it is read-only.
-   Returns true if successful, false if memory allocation
-   failed. */
 bool
-supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_bytes, uint8_t location, bool writable)
+supdir_set_page (struct hash *table, void *vaddr, block_sector_t sector, size_t read_bytes, uint8_t location, bool writable)
 {
+  struct spte *entry = lookup_sup_page (table, vaddr);
+  if (entry == NULL)
+    {
+      entry = malloc (sizeof (struct spte));
+      if (entry == NULL)
+        return false;
+    }
+  entry->vaddr = (uint32_t) vaddr;
+  entry->sector = sector;
+  entry->read_bytes = read_bytes;
+  entry->location = location;
+  entry->writable = writable;
+  hash_replace (table, &entry->elem);
+  return true;
+  /*
   uint64_t *spte;
   ASSERT (pg_ofs (vaddr) == 0);
   ASSERT (is_user_vaddr (vaddr));
@@ -117,22 +133,12 @@ supdir_set_page (uint32_t *pd, void *vaddr, block_sector_t sector, size_t read_b
       //printf ("ENTRY %x, virtual address %p, sector %d, %s\n", *spte, vaddr, sector, writable ? "writable" : "read-only");
       //printf ("SET PAGE %llx for vaddr %p\n", *spte, vaddr);
       ASSERT (writable == writable_from_spte (*spte));
-      //printf ("supdir_set_page created entry %llx\n", *spte);
+      //printf ("supdir_set_page created entry %llx for page %p\n", *spte, vaddr);
       printf ("After setting page, for vaddr %p, looking up the page yields entry %llx\n", vaddr, *lookup_sup_page (pd, vaddr, false));
       return true;
     }
   else
-    return false;
-}
-
-/* Looks up and returns the Sector number that corresponds to user virtual
-   address VADDR in PD.   Returns a null pointer if
-   VADDR is unmapped. */
-block_sector_t
-supdir_get_sector (uint32_t *pd, const void *vaddr) 
-{
-  ASSERT (is_user_vaddr (vaddr));
-  return (block_sector_t) lookup_sup_page (pd, vaddr, false);
+    return false;*/
 }
 
 /* Marks user virtual page UPAGE "not present" in page
@@ -140,32 +146,31 @@ supdir_get_sector (uint32_t *pd, const void *vaddr)
    bits in the page table entry are preserved.
    UPAGE need not be mapped. */
 void
-supdir_clear_page (uint32_t *pd, void *upage) 
+supdir_clear_page (struct hash *table, void *upage) 
 {
-  uint64_t *spte;
+  struct spte *spte;
 
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (is_user_vaddr (upage));
 
-  spte = lookup_sup_page (pd, upage, false);
+  spte = lookup_sup_page (table, upage);
   if (spte != NULL)
     {
-      *spte = 0;
+      hash_delete (table, &spte->elem);
+      free (spte);
     }
 }
 
 bool
 load_page (void *vpage, void *frame)
 {
-  uint64_t *spte = lookup_sup_page (thread_current ()->supdir, vpage, false);
-  printf ("LOAD PAGE %llx for vaddr %p for thread %s\n", *spte, vpage, thread_current ()->name);
-  if (spte != NULL)
+  struct spte *entry = lookup_sup_page (thread_current ()->supdir, (const void *) vpage);
+  if (entry != NULL)
     {
-      uint64_t entry = *spte;
-      uint8_t location = location_from_spte (entry);
-      int32_t read_bytes = (int32_t) read_bytes_from_spte (entry);
+      uint8_t location = entry->location;
+      int32_t read_bytes = entry->read_bytes;
       uint32_t zero_bytes = PGSIZE - read_bytes;
-      uint32_t sector = sector_from_spte (entry);
+      block_sector_t sector = entry->sector;
       //printf ("About to attempt to read %d bytes from %s, starting at sector %d\n", read_bytes, location == FILE_SYS ? "file system " : "swap ", sector);
       //printf ("LOAD PAGE %llx for vaddr %p\n", entry, vpage);
       //printf ("Entry %a: Mapped %s virtual page %p to physical frame %p\n", entry, writable ? "writable" : "read-only", vpage, frame);
@@ -188,7 +193,8 @@ load_page (void *vpage, void *frame)
         }
       if (zero_bytes > 0)
         memset (frame_, 0, zero_bytes);
-      bool writable = writable_from_spte (entry);
+      bool writable = entry->writable;
+      printf ("LOAD %s PAGE for vaddr %p for thread %s\n", writable ? "writable" : "read-only", vpage, thread_current ()->name);
       pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
       return true;
     }
@@ -196,33 +202,21 @@ load_page (void *vpage, void *frame)
     return false;
 }
 
-uint8_t
-location_from_spte (uint64_t entry)
+/* Returns a hash value for entry e. */
+unsigned
+hash (const struct hash_elem *e, void *aux UNUSED)
 {
-  return (entry >> LOC_SHIFT) & LOC_MASK;
+  const struct spte *entry = hash_entry (e, struct spte, elem);
+  return hash_bytes (&entry->vaddr, sizeof entry->vaddr);
 }
 
-uint32_t
-read_bytes_from_spte (uint64_t entry)
-{
-  return (entry >> READ_BYTES_SHIFT) & READ_BYTES_MASK;
-}
-
-uint32_t
-sector_from_spte (uint64_t entry)
-{
-  return (uint32_t) entry;
-}
-
+/* Returns true if page a precedes page b. */
 bool
-writable_from_spte (uint64_t entry)
+less_than (const struct hash_elem *elem_a, const struct hash_elem *elem_b, void *aux UNUSED)
 {
-  return (entry >> WRITABLE_SHIFT) & WRITABLE_MASK;
+  const struct spte *entry_a = hash_entry (elem_a, struct spte, elem);
+  const struct spte *entry_b = hash_entry (elem_b, struct spte, elem);
+
+  return entry_a->vaddr < entry_b->vaddr;
 }
 
-bool 
-load_stack_pg (void *vpage, void *frame)
-{
-  memset (frame, 0, PGSIZE);
-  return pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, true);
-}
