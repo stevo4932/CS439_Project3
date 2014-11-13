@@ -570,7 +570,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
-  printf ("Loading %s segment starting at offset %d, virtual page %p\n", writable ? "writable" : "read-only", ofs, upage);
+  //printf ("Loading %s segment starting at offset %d, virtual page %p\n", writable ? "writable" : "read-only", ofs, upage);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
       //printf ("%d bytes left to read.\n", read_bytes);

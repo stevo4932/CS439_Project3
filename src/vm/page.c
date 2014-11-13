@@ -194,7 +194,7 @@ load_page (void *vpage, void *frame)
       if (zero_bytes > 0)
         memset (frame_, 0, zero_bytes);
       bool writable = entry->writable;
-      printf ("LOAD %s PAGE for vaddr %p for thread %s\n", writable ? "writable" : "read-only", vpage, thread_current ()->name);
+      //printf ("LOAD %s PAGE for vaddr %p for thread %s\n", writable ? "writable" : "read-only", vpage, thread_current ()->name);
       pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
       return true;
     }

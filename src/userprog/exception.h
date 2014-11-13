@@ -10,6 +10,6 @@
 
 void exception_init (void);
 void exception_print_stats (void);
-void page_in (void *fault_addr, struct intr_frame *f);
+void page_in (void *fault_addr, struct intr_frame *f, bool is_stack_ref);
 
 #endif /* userprog/exception.h */

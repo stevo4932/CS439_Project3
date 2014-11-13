@@ -6,6 +6,7 @@
 #include "devices/shutdown.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
+#include "threads/pte.h"
 #include "userprog/process.h"
 #include "userprog/exception.h"
 #include "threads/palloc.h"
@@ -16,7 +17,7 @@
 #include <string.h>
 
 static void syscall_handler (struct intr_frame *);
-static bool is_pt_valid (const void *pt, struct intr_frame *f);
+static bool is_pt_valid (const void *pt, struct intr_frame *f, bool is_stack_ref);
 static bool process_args (int *esp, int argc, int ptr_pos, struct intr_frame *f);
 static void sys_halt (void);
 static void sys_exit (int status, struct intr_frame *f);
@@ -48,7 +49,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  if (is_pt_valid (f->esp, f))
+  if (is_pt_valid (f->esp, f, false))
     {
       int *esp_int = (int *)f->esp;
       int sys_call_num = *esp_int;
@@ -128,7 +129,7 @@ process_args (int *esp, int argc, int ptr_pos, struct intr_frame *f)
   int i;
   for (i = 0; i < argc; i++)
     {
-      if (!is_pt_valid ((esp + i), f) || (ptr_pos == (i + 1) && !is_pt_valid ((void *)esp[i], f)))
+      if (!is_pt_valid ((esp + i), f, false) || (ptr_pos == (i + 1) && !is_pt_valid ((void *)esp[i], f, true)))
         return false;
     }
   return true;
@@ -139,7 +140,7 @@ process_args (int *esp, int argc, int ptr_pos, struct intr_frame *f)
    is mapped to in the process's page directory. If any of these conditions do not hold,
    the process is terminated with an exit status of -1. */
 static bool
-is_pt_valid (const void *pt, struct intr_frame *f)
+is_pt_valid (const void *pt, struct intr_frame *f, bool allow_stack_growth)
 {
   /* Scott is driving now. */
   if (pt == NULL || !is_user_vaddr (pt))
@@ -150,7 +151,9 @@ is_pt_valid (const void *pt, struct intr_frame *f)
   else if (pagedir_get_page (thread_current ()->pagedir, pt) == NULL)
     {
       //printf ("In is_pt_valid, address was unmapped, attempting to page in.\n");
-      page_in ((void *)pt, f);
+      bool is_stack_ref = allow_stack_growth ? (pt < PHYS_BASE && pt >= (f->esp - 32)) : false;
+      //if (is_stack_ref) printf ("Attempting to grow stack from inside system call.\n");
+      page_in ((void *)pt, f, is_stack_ref);
     }
   return true;
 }
@@ -310,7 +313,7 @@ sys_write (int fd, const void *buffer, unsigned size, struct intr_frame *f)
       for (pos = 0; pos < size; pos += 300)
         {
           char_buffer += pos;
-          if (is_pt_valid (char_buffer, f))
+          if (is_pt_valid (char_buffer, f, true))
             {
               if (bytes_left > 300)
                 {
@@ -404,10 +407,14 @@ sys_read (int fd, void *buffer, unsigned size, struct intr_frame *f)
       uint8_t *byte_buffer = (uint8_t *)buffer;
       int bytes_read = 0;
       unsigned i;
+      uint32_t *pd = t->pagedir;
       for (i = 0; i < size; i++)
         {
-          if (is_pt_valid (byte_buffer, f))
+          if (is_pt_valid (byte_buffer, f, true))
             {
+              bool writable = *(lookup_page (pd, byte_buffer, false)) & PTE_W;
+              if (!writable)
+                self_destruct (-1);
               *byte_buffer = input_getc ();
               byte_buffer++;
               bytes_read++;
@@ -417,12 +424,14 @@ sys_read (int fd, void *buffer, unsigned size, struct intr_frame *f)
     }
   else if (fd < 1024 && fd >= 2 && (file = t->files[fd]))
   {
-    //printf ("In sys_read :D\n");
     void *buffer_;
+    uint32_t *pd = t->pagedir;
     for (buffer_ = (void *) ((uint32_t) buffer & 0xfffff000); (unsigned) buffer_ < (unsigned) buffer + size; buffer_ += PGSIZE)
     {
       //printf ("Validating buffer at %p\n", buffer_);
-      is_pt_valid (buffer_, f);
+      if (!is_pt_valid (buffer_, f, true) || !(*(lookup_page (pd, buffer_, false)) & PTE_W))
+        self_destruct (-1);
+      //printf ("Buffer at %p is %s\n", buffer_, valid ? "valid." : "invalid.");
       //printf ("made it past is_pt_valid!\n");
     }
     sema_down (&file_sema);

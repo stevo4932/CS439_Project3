@@ -20,7 +20,7 @@ void
 frame_table_init ()
 {
 	ft = malloc (sizeof (struct hash));
-  hash_init (ft, (hash_hash_func *) frame_hash, (hash_less_func *) frame_less_than, NULL);
+	hash_init (ft, (hash_hash_func *) frame_hash, (hash_less_func *) frame_less_than, NULL);
 }
 
 /* Obtains an unused frame for the user.
@@ -46,6 +46,7 @@ get_user_page (uint8_t *vaddr)
 void *
 evict_page (uint8_t *new_addr)
 {
+	printf ("Eviction time!\n");
 	struct hash_iterator iterator;
 	hash_first (&iterator, ft);
 	struct hash_elem *e = hash_next (&iterator);
@@ -56,8 +57,9 @@ evict_page (uint8_t *new_addr)
 	pagedir_clear_page (victim->pagedir, old_addr);
 	hash_delete (ft, e);
 	entry->thread = thread_current ();
-	entry->vaddr = new_addr;
+	entry->vaddr = (uint32_t) new_addr;
 	hash_replace (ft, e);
+	return frame_addr;
 	/*
 	uint32_t old_addr = (ft[evict_index] >> 32);
 	printf ("Old addr: %x\n", old_addr);
@@ -83,8 +85,11 @@ unsigned
 frame_hash (const struct hash_elem *e, void *aux UNUSED)
 {
   const struct ft_entry *entry = hash_entry (e, struct ft_entry, elem);
+  uint64_t big_vaddr = ((uint64_t) 0 | entry->vaddr) << 32;
+  uint64_t identifier = (((uint64_t) 0 | entry->vaddr) << 32) | (uint32_t) entry->thread;
   /* change hash to be vaddr and thread */
-  return hash_bytes (&entry->vaddr, sizeof entry->vaddr);
+  //return hash_bytes (&entry->vaddr, sizeof entry->vaddr);
+  return hash_bytes (&identifier, sizeof big_vaddr);
 }
 
 /* Returns true if page a precedes page b. */
