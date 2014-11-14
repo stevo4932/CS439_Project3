@@ -16,5 +16,6 @@ void frame_table_init (void);
 void *get_user_page (uint8_t *vaddr);
 void frame_table_destroy (void);
 void *evict_page (uint8_t *new_addr);
+void free_frame (void *vaddr);
 
 #endif /* vm/frame.h */

@@ -89,6 +89,23 @@ evict_page (uint8_t *new_addr)
 }
 
 void
+free_frame (void *vaddr)
+{
+	struct thread *t = thread_current ();
+	struct ft_entry *entry = malloc (sizeof (struct ft_entry));
+	struct hash_elem * del_elem;
+	struct ft_entry *remove_entry;
+	//find entry in frame table.
+	entry->vaddr = (uint32_t) vaddr;
+	entry->thread = t;
+	del_elem =	hash_delete (ft, entry->elem);
+	remove_entry = list_entry (del_elem, struct ft_entry, elem);
+	//reclaim entrys.
+	free (remove_entry);
+	free (entry);
+}
+
+void
 frame_table_destroy ()
 {
 	hash_destroy (ft, NULL);
