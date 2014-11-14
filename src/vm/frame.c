@@ -56,11 +56,17 @@ evict_page (uint8_t *new_addr)
 	struct thread *victim = entry->thread;
 	void *old_addr = (void *) entry->vaddr;
 	void *frame_addr = pagedir_get_page (victim->pagedir, old_addr);
+	struct spte *spte = lookup_sup_page (victim->supdir, old_addr);
 	if (pagedir_is_dirty (victim->pagedir, old_addr))
 		{
 			//printf ("Swapping out virtual page %p from victim %s\n", old_addr, victim->name);
 			block_sector_t sector = swap_write (frame_addr);
 			supdir_set_swap (victim->supdir, old_addr, sector);
+		}
+	/* If the page is read-only, it must live in the file system. Update location in supplemental page table. */
+	else if (spte->writable == FALSE)
+		{
+			spte->location = FILE_SYS;
 		}
 	pagedir_clear_page (victim->pagedir, old_addr);
 	hash_delete (ft, e);

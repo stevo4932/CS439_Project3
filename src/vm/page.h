@@ -8,13 +8,8 @@
 
 #define FILE_SYS 3
 #define SWAP_SYS 2
-#define ZERO_SYS 1
-#define LOC_MASK 0x3
-#define LOC_SHIFT 32
-#define READ_BYTES_MASK 0x1FFF
-#define READ_BYTES_SHIFT 34
-#define WRITABLE_MASK 0x1
-#define WRITABLE_SHIFT 47
+#define MEM_SYS	 1
+#define ZERO_SYS 0
 
 struct spte
 {

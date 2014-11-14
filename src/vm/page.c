@@ -26,12 +26,20 @@ supdir_create (void)
   return hash_table;
 }
 
-/* Useless at this point. */
 void
 supdir_destroy (struct hash *table) 
 {
   if (table == NULL)
     return;
+  struct hash_iterator iterator;
+  hash_first (&iterator, table);
+  struct hash_elem *e = hash_next (&iterator);
+  while (e != NULL)
+    {
+      struct spte *entry = hash_entry (e, struct spte_entry, elem);
+      if (entry->location == MEM_SYS)
+        
+    }
   hash_destroy (table, NULL);
   free (table);
 }
@@ -181,7 +189,7 @@ load_page (void *vpage, void *frame)
 {
   //printf ("let's load a page!\n");
   struct spte *entry = lookup_sup_page (thread_current ()->supdir, (const void *) vpage);
-  if (entry != NULL)
+  if (entry != NULL && location != MEM_SYS)
     {
       uint8_t location = entry->location;
       int32_t read_bytes = entry->read_bytes;
@@ -213,6 +221,7 @@ load_page (void *vpage, void *frame)
         memset (frame_, 0, zero_bytes);
       bool writable = entry->writable;
       //printf ("LOAD %s PAGE for vaddr %p for thread %s\n", writable ? "writable" : "read-only", vpage, thread_current ()->name);
+      entry->location = MEM_SYS;
       pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
       return true;
     }

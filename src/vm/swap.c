@@ -21,7 +21,7 @@ swap_destroy ()
 	bitmap_destroy (swap_table);
 }
 
-//Going to need more here.f
+//Going to need more here.
 size_t
 swap_write (void *frame_addr)
 {
@@ -46,7 +46,7 @@ swap_read (size_t sector, void *frame_addr)
 {
 	int write_sector;
 	bitmap_mark (swap_table, sector);
-	for(write_sector = 0; write_sector < 8; write_sector++)
+	for (write_sector = 0; write_sector < 8; write_sector++)
 		{
 			//Now read in page located at sector into swap_table.
 		  block_read (swap_device, (block_sector_t) sector, frame_addr);
