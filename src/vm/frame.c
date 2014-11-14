@@ -1,5 +1,6 @@
 #include "vm/frame.h"
 #include "vm/page.h"
+#include "vm/swap.h"
 #include "userprog/pagedir.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -11,6 +12,7 @@
 #include "threads/palloc.h"
 #include "threads/vaddr.h" 
 #include "threads/thread.h"
+#include "devices/block.h"
 
 static struct hash *ft;
 unsigned frame_hash (const struct hash_elem *e, void *aux UNUSED);
@@ -46,7 +48,7 @@ get_user_page (uint8_t *vaddr)
 void *
 evict_page (uint8_t *new_addr)
 {
-	printf ("Eviction time!\n");
+	//printf ("Eviction time!\n");
 	struct hash_iterator iterator;
 	hash_first (&iterator, ft);
 	struct hash_elem *e = hash_next (&iterator);
@@ -54,12 +56,19 @@ evict_page (uint8_t *new_addr)
 	struct thread *victim = entry->thread;
 	void *old_addr = (void *) entry->vaddr;
 	void *frame_addr = pagedir_get_page (victim->pagedir, old_addr);
+	if (pagedir_is_dirty (victim->pagedir, old_addr))
+		{
+			//printf ("Swapping out virtual page %p from victim %s\n", old_addr, victim->name);
+			block_sector_t sector = swap_write (frame_addr);
+			supdir_set_swap (victim->supdir, old_addr, sector);
+		}
 	pagedir_clear_page (victim->pagedir, old_addr);
 	hash_delete (ft, e);
 	entry->thread = thread_current ();
 	entry->vaddr = (uint32_t) new_addr;
 	hash_replace (ft, e);
 	return frame_addr;
+
 	/*
 	uint32_t old_addr = (ft[evict_index] >> 32);
 	printf ("Old addr: %x\n", old_addr);

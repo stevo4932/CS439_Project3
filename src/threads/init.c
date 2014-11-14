@@ -129,6 +129,10 @@ main (void)
   filesys_init (format_filesys);
 #endif
 
+#ifdef USERPROG
+  swap_init ();
+#endif
+
   printf ("Boot complete.\n");
   
   /* Run actions specified on kernel command line. */
@@ -137,6 +141,7 @@ main (void)
   /* Finish up. */
 #ifdef USERPROG
   frame_table_destroy ();
+  swap_destroy ();
 #endif
   shutdown ();
   thread_exit ();

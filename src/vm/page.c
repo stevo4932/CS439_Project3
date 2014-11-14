@@ -1,5 +1,6 @@
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -141,6 +142,20 @@ supdir_set_page (struct hash *table, void *vaddr, block_sector_t sector, size_t 
     return false;*/
 }
 
+bool
+supdir_set_swap (struct hash *supdir, void *vaddr, block_sector_t swap_sector)
+{
+  struct spte *entry = lookup_sup_page (supdir, vaddr);
+  if (entry != NULL)
+    {
+      entry->location = SWAP_SYS;
+      entry->sector = swap_sector;
+      entry->read_bytes = PGSIZE;
+      return true;
+    }
+  return false;
+}
+
 /* Marks user virtual page UPAGE "not present" in page
    directory PD.  Later accesses to the page will fault.  Other
    bits in the page table entry are preserved.
@@ -164,6 +179,7 @@ supdir_clear_page (struct hash *table, void *upage)
 bool
 load_page (void *vpage, void *frame)
 {
+  //printf ("let's load a page!\n");
   struct spte *entry = lookup_sup_page (thread_current ()->supdir, (const void *) vpage);
   if (entry != NULL)
     {
@@ -174,15 +190,12 @@ load_page (void *vpage, void *frame)
       //printf ("About to attempt to read %d bytes from %s, starting at sector %d\n", read_bytes, location == FILE_SYS ? "file system " : "swap ", sector);
       //printf ("LOAD PAGE %llx for vaddr %p\n", entry, vpage);
       //printf ("Entry %a: Mapped %s virtual page %p to physical frame %p\n", entry, writable ? "writable" : "read-only", vpage, frame);
-      struct block *swap_device = block_get_role (BLOCK_SWAP);
       void *frame_ = frame;
-      if (location == FILE_SYS || location == SWAP_SYS)
+      if (location == FILE_SYS)
         {
-          struct block *block_device = (location == FILE_SYS) ? fs_device : swap_device;
           while (read_bytes > 0)
             {
-              //printf ("About to block_read sector %d, %d bytes left to read\n", sector, read_bytes);
-              block_read (block_device, sector, frame_);
+              block_read (fs_device, sector, frame_);
               sector++;
               if (read_bytes >= BLOCK_SECTOR_SIZE)
                 frame_ += BLOCK_SECTOR_SIZE;
@@ -190,6 +203,11 @@ load_page (void *vpage, void *frame)
                 frame_ += read_bytes;
               read_bytes -= BLOCK_SECTOR_SIZE;
             }
+        }
+      else if (location == SWAP_SYS)
+        {
+          //printf ("Reading page %p in from swap device for process %s\n", vpage, thread_current ()->name);
+          swap_read (sector, frame);
         }
       if (zero_bytes > 0)
         memset (frame_, 0, zero_bytes);

@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
-#include <stdio.h>
 #include "threads/thread.h"
 #include "threads/init.h"
 #include "threads/pte.h"
@@ -60,7 +59,6 @@ uint32_t *
 lookup_page (uint32_t *pd, const void *vaddr, bool create)
 {
   uint32_t *pt, *pde;
-  printf ("Looking up page directory for thread %d (%s)\n", thread_current ()->tid, thread_current ()->name);
   ASSERT (pd != NULL);
 
   /* Shouldn't create new kernel virtual mappings. */

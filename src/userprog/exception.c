@@ -125,6 +125,7 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
+  //printf ("entering page fault %s\n", thread_current ()->name);
   /* Heather is driving. */
   /* If the page fault was not caused by a user process, proceed as normal
      and print all debug information. */
@@ -214,6 +215,7 @@ page_fault (struct intr_frame *f)
       kill (f);
       //self_destruct (-1);
     }
+  //printf ("exiting page fault: %s\n", thread_current ()->name);
   //kill (f);
 }
 
