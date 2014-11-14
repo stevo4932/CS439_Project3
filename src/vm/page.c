@@ -37,7 +37,11 @@ supdir_destroy (struct hash *table)
   while (e != NULL)
     {
       struct spte *entry = hash_entry (e, struct spte, elem);
-      if (entry->location == MEM_SYS); 
+      if (entry->location == MEM_SYS)
+        free_frame ((void *) entry->vaddr); // placeholder
+      else if (entry->location == SWAP_SYS)
+        swap_remove (entry->sector);
+      e = hash_next (&iterator);
     }
   hash_destroy (table, NULL);
   free (table);

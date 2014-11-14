@@ -8,4 +8,5 @@ userprog/syscall.o: ../../userprog/syscall.c ../../userprog/syscall.h \
   ../../threads/pte.h ../../threads/vaddr.h ../../userprog/process.h \
   ../../userprog/exception.h ../../threads/palloc.h \
   ../../threads/malloc.h ../../filesys/filesys.h ../../devices/input.h \
-  ../../lib/string.h
+  ../../lib/string.h ../../vm/page.h ../../devices/block.h \
+  ../../lib/inttypes.h ../../lib/kernel/hash.h ../../lib/kernel/list.h

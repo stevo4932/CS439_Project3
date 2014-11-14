@@ -15,6 +15,7 @@
 #include "filesys/file.h"
 #include "devices/input.h"
 #include <string.h>
+#include "vm/page.h"
 
 static void syscall_handler (struct intr_frame *);
 static bool is_pt_valid (const void *pt, struct intr_frame *f, bool is_stack_ref);
@@ -252,7 +253,7 @@ self_destruct (int status)
           child->parent = NULL;
         }
     }
-  
+  supdir_destroy (t->supdir);
   printf ("%s: exit(%d)\n", thread_current ()->name, status);
   thread_exit ();
 }
