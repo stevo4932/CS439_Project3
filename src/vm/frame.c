@@ -64,7 +64,7 @@ evict_page (uint8_t *new_addr)
 			supdir_set_swap (victim->supdir, old_addr, sector);
 		}
 	/* If the page is read-only, it must live in the file system. Update location in supplemental page table. */
-	else if (spte->writable == FALSE)
+	else if (spte->writable == false)
 		{
 			spte->location = FILE_SYS;
 		}
@@ -98,8 +98,8 @@ free_frame (void *vaddr)
 	//find entry in frame table.
 	entry->vaddr = (uint32_t) vaddr;
 	entry->thread = t;
-	del_elem =	hash_delete (ft, entry->elem);
-	remove_entry = list_entry (del_elem, struct ft_entry, elem);
+	del_elem =	hash_delete (ft, &entry->elem);
+	remove_entry = hash_entry (del_elem, struct ft_entry, elem);
 	//reclaim entrys.
 	free (remove_entry);
 	free (entry);

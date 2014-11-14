@@ -36,9 +36,8 @@ supdir_destroy (struct hash *table)
   struct hash_elem *e = hash_next (&iterator);
   while (e != NULL)
     {
-      struct spte *entry = hash_entry (e, struct spte_entry, elem);
-      if (entry->location == MEM_SYS)
-        
+      struct spte *entry = hash_entry (e, struct spte, elem);
+      if (entry->location == MEM_SYS); 
     }
   hash_destroy (table, NULL);
   free (table);
@@ -189,7 +188,7 @@ load_page (void *vpage, void *frame)
 {
   //printf ("let's load a page!\n");
   struct spte *entry = lookup_sup_page (thread_current ()->supdir, (const void *) vpage);
-  if (entry != NULL && location != MEM_SYS)
+  if (entry != NULL && entry->location != MEM_SYS)
     {
       uint8_t location = entry->location;
       int32_t read_bytes = entry->read_bytes;
