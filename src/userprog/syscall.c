@@ -240,6 +240,7 @@ sys_wait (pid_t pid, struct intr_frame *f)
 void
 self_destruct (int status)
 {
+  printf ("thread %d attempting to self destruct\n", thread_current ()->tid);
   /* Heather is driving. */
   struct thread *t = thread_current ();
   struct list_elem *e;
@@ -254,7 +255,8 @@ self_destruct (int status)
         }
     }
   supdir_destroy (t->supdir);
-  printf ("%s: exit(%d)\n", thread_current ()->name, status);
+  //printf ("%s: exit(%d)\n", thread_current ()->name, status);
+  printf ("%s(%d): exit(%d)\n", thread_current ()->name, thread_current ()->tid, status);
   thread_exit ();
 }
 

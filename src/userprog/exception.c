@@ -250,5 +250,8 @@ page_in (void *fault_addr, struct intr_frame *f, bool is_stack_ref)
       pagedir_set_page (thread_current ()->pagedir, fault_page, frame, true);
     }
   else
-    load_page (fault_page, frame);
+    {
+      load_page (fault_page, frame);
+      set_pinned (fault_page, false);
+    }
 }

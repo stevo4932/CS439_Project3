@@ -194,6 +194,7 @@ process_exit (void)
            e = list_next (e))
         {
           struct thread *child = list_entry (e, struct thread, childelem);
+          ASSERT (child != NULL);
           if (sema_try_down (&child->child_sema))
              palloc_free_page (child);
         }
@@ -617,7 +618,7 @@ setup_stack (const char *cmdline, void **esp)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = get_user_page ((uint8_t *)-1);
+  kpage = get_user_page (((uint8_t *) PHYS_BASE) - PGSIZE);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);

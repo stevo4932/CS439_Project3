@@ -14,6 +14,7 @@
 struct spte
 {
 	bool writable;
+	bool in_mem;
 	uint8_t location;
 	block_sector_t sector;
 	uint32_t read_bytes;
