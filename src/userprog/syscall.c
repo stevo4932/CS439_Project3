@@ -18,7 +18,7 @@
 #include "vm/page.h"
 
 static void syscall_handler (struct intr_frame *);
-static bool is_pt_valid (const void *pt, struct intr_frame *f, bool is_stack_ref);
+static bool is_pt_valid (const void *pt, struct intr_frame *f, bool stack_page);
 static bool process_args (int *esp, int argc, int ptr_pos, struct intr_frame *f);
 static void sys_halt (void);
 static void sys_exit (int status, struct intr_frame *f);
@@ -42,7 +42,8 @@ static void sys_tell (int fd, struct intr_frame *f);
 void
 syscall_init (void) 
 {
-  sema_init (&file_sema, 1);
+  file_sema = malloc (sizeof (struct semaphore));
+  sema_init (file_sema, 1);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -152,9 +153,9 @@ is_pt_valid (const void *pt, struct intr_frame *f, bool allow_stack_growth)
   else if (pagedir_get_page (thread_current ()->pagedir, pt) == NULL)
     {
       //printf ("In is_pt_valid, address was unmapped, attempting to page in.\n");
-      bool is_stack_ref = allow_stack_growth ? (pt < PHYS_BASE && pt >= (f->esp - 32)) : false;
-      //if (is_stack_ref) printf ("Attempting to grow stack from inside system call.\n");
-      page_in ((void *)pt, f, is_stack_ref);
+      bool stack_page = allow_stack_growth ? (pt < PHYS_BASE && pt >= (f->esp - 32)) : false;
+      //if (stack_page) printf ("Attempting to grow stack from inside system call.\n");
+      page_in ((void *)pt, f, stack_page);
     }
   return true;
 }
@@ -277,7 +278,7 @@ sys_open (const char *file_name, struct intr_frame *f)
 {
   //printf ("Opening %s\n", file_name);
   /* Edwin is driving. */
-  sema_down (&file_sema);
+  sema_down (file_sema);
   f->eax = -1;
   struct thread *t = thread_current ();
   int i;
@@ -294,7 +295,7 @@ sys_open (const char *file_name, struct intr_frame *f)
             }
         }
     }
-  sema_up (&file_sema);
+  sema_up (file_sema);
   //printf ("Opened %s\n", file_name);
 }
 
@@ -334,9 +335,9 @@ sys_write (int fd, const void *buffer, unsigned size, struct intr_frame *f)
     }
   else if (fd < 1024 && fd >= 2 && (file = t->files[fd]))
   {
-    sema_down (&file_sema);
+    sema_down (file_sema);
     f->eax = (int)file_write (file, buffer, size);
-    sema_up (&file_sema);
+    sema_up (file_sema);
   }
   else
     f->eax = -1;
@@ -348,13 +349,13 @@ static void
 sys_filesize (int fd, struct intr_frame *f)
 {
   /* Edwin is driving. */
-  sema_down (&file_sema);
+  sema_down (file_sema);
   f->eax = -1;
   struct thread *t = thread_current ();
   struct file *file;
   if (fd < 1024 && fd >= 2 && (file = t->files[fd]))
     f->eax = file_length (file);
-  sema_up (&file_sema);
+  sema_up (file_sema);
 }
 
 /* Closes the file denoted by the given file descriptor, if such an open files exists. */
@@ -362,7 +363,7 @@ static void
 sys_close (int fd)
 {
   /* Heather is driving. */
-  sema_down (&file_sema);
+  sema_down (file_sema);
   struct thread *t = thread_current ();
   struct file *file;
   if (fd < 1024 && fd >= 2 && (file = t->files[fd]))
@@ -370,7 +371,7 @@ sys_close (int fd)
     file_close (file);
     t->files[fd] = NULL;
   }
-  sema_up (&file_sema);
+  sema_up (file_sema);
 }
 
 /* Creates a file called file_name that is of size initial_size. Returns true
@@ -379,9 +380,9 @@ static void
 sys_create (const char *file_name, unsigned initial_size, struct intr_frame *f)
 {
   /* Edwin is driving. */
-  sema_down (&file_sema);
+  sema_down (file_sema);
   f->eax = filesys_create (file_name, initial_size);
-  sema_up (&file_sema);
+  sema_up (file_sema);
 }
 
 /* Deletes the file called file_name. Returns true if successful, false otherwise.
@@ -390,9 +391,9 @@ static void
 sys_remove (const char *file_name, struct intr_frame *f)
 {
   /* Heather is driving. */
-  sema_down (&file_sema);
+  sema_down (file_sema);
   f->eax = filesys_remove (file_name);
-  sema_up (&file_sema);
+  sema_up (file_sema);
 }
 
 /* Attempts to read the contents of the file denoted by the given file descriptor into BUFFER.
@@ -437,10 +438,10 @@ sys_read (int fd, void *buffer, unsigned size, struct intr_frame *f)
       //printf ("Buffer at %p is %s\n", buffer_, valid ? "valid." : "invalid.");
       //printf ("made it past is_pt_valid!\n");
     }
-    sema_down (&file_sema);
+    sema_down (file_sema);
     f->eax = (int)file_read (file, buffer, size);
     //printf ("not reached\n");
-    sema_up (&file_sema);
+    sema_up (file_sema);
   }
   else
     f->eax = -1;
@@ -452,12 +453,12 @@ static void
 sys_seek (int fd, unsigned position)
 {
   /* Heather is driving. */
-  sema_down (&file_sema);
+  sema_down (file_sema);
   struct file *file;
   struct thread *t = thread_current ();
   if (fd < 1024 && fd >= 2 && (file = t->files[fd]))
     file_seek (file, position);
-  sema_up (&file_sema);
+  sema_up (file_sema);
 }
 
 /* Uses file function file_tell to return the next byte to be read or written in the file
@@ -466,11 +467,11 @@ static void
 sys_tell (int fd, struct intr_frame *f)
 {
   /* Edwin is driving. */
-  sema_down (&file_sema);
+  sema_down (file_sema);
   f->eax = -1;
   struct thread *t = thread_current ();
   struct file *file;
   if (fd < 1024 && fd >= 2 && (file = t->files[fd]))
     f->eax = file_tell (file);
-  sema_up (&file_sema);
+  sema_up (file_sema);
 }

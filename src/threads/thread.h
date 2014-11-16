@@ -105,7 +105,6 @@ struct thread
     struct semaphore child_sema;        /* Semaphore for parent waiting on child's termination. */
     struct semaphore load_sema;         /* Semaphore for parent waiting on it's child to load. */ 
     struct semaphore child_list_sema;   /* Semaphore for modifying and accessing thread's children list. */
-    struct semaphore io_sema;           /* Semaphore for thread waiting on IO during page fault handling. */
     int return_status;                  /* This thread's exit status. */
     bool success;                       /* Indicator of success/failure of child loading. */
     struct file **files;                /* Pointer to thread's page of pointers to open files. */

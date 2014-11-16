@@ -61,7 +61,7 @@ process_execute (const char *cmdline)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, cmdline_copy);
 
-  sema_down (&file_sema);
+  sema_down (file_sema);
   struct file *file = filesys_open (file_name);
   if(file != NULL)
     {
@@ -79,7 +79,7 @@ process_execute (const char *cmdline)
             }
         }
     }
-  sema_up (&file_sema);
+  sema_up (file_sema);
 
   /* Done with the copy of FILE_NAME. */
   palloc_free_page (file_name);
@@ -399,7 +399,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Edwin driving now. */
-  sema_down (&file_sema);
+  sema_down (file_sema);
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -496,7 +496,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   file_close (file);
   //printf ("Finished loading %s\n", cmdline_copy);
   palloc_free_page (cmdline_copy);
-  sema_up (&file_sema); 
+  sema_up (file_sema); 
   return success;
 }
 
@@ -573,20 +573,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   //printf ("Loading %s segment starting at offset %d, virtual page %p\n", writable ? "writable" : "read-only", ofs, upage);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
-      //printf ("%d bytes left to read.\n", read_bytes);
       /* Calculate how to fill this page.
          We will read PAGE_READ_BYTES bytes from FILE
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = (read_bytes < PGSIZE) ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
-      //printf ("%d bytes left to read, %d zero bytes remaining\n", read_bytes, zero_bytes);
-
-      /* Get a page of memory. */
-      // uint8_t *kpage = get_user_page (upage);
-      // if (kpage == NULL)
-      //   return false;
-      
-      //uint8_t location = (page_read_bytes == 0) ? (uint8_t) ZERO_SYS : (uint8_t) FILE_SYS;
       if (page_read_bytes > 0)
         {
           uint8_t location = (page_read_bytes == 0) ? 1 : 3;
@@ -594,7 +585,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           ASSERT (inode != NULL);
           uint32_t sector = byte_to_sector (inode, ofs);
           //printf ("Read_bytes = %d, offset %d maps to sector %d\n", page_read_bytes, ofs, sector);
-          //uint32_t sector = inode->sector + (ofs / BLOCK_SECTOR_SIZE);
           supdir_set_page (thread_current ()->supdir, upage, sector, page_read_bytes, location, writable);
         }
       else
@@ -615,21 +605,40 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (const char *cmdline, void **esp) 
 {
-  uint8_t *kpage;
+  //uint8_t *kpage;
+  //printf ("Setting up stack for thread %d\n", thread_current ()->tid);
   bool success = false;
+  struct hash *supdir = thread_current ()->supdir;
 
+  uint8_t *stack_addr = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  if (supdir_set_page (supdir, stack_addr, 0, 0, ZERO_SYS, true))
+    {
+      void *frame = get_user_page (stack_addr);
+      if (frame == NULL)
+        frame = evict_page (stack_addr);
+      ASSERT (frame != NULL);
+      success = load_page (stack_addr, frame);
+    }
+  if (success)
+    {
+      *esp = PHYS_BASE;
+      parse_push (cmdline, esp);
+      //printf ("Set up stack for thread %d\n", thread_current ()->tid);
+    }
+  else
+  {
+    printf ("Did not set up stack for thread %d\n", thread_current ()->tid);
+  }
+  /*
   kpage = get_user_page (((uint8_t *) PHYS_BASE) - PGSIZE);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-      {
-        *esp = PHYS_BASE;
-        parse_push (cmdline, esp);
-      }
+      
       else
         palloc_free_page (kpage);
     }
+  */
   return success;
 }
 

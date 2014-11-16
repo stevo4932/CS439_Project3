@@ -184,8 +184,8 @@ page_fault (struct intr_frame *f)
     //void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
     if (user && not_present)
       {
-        bool is_stack_ref = fault_addr < PHYS_BASE && fault_addr >= (f->esp - 32);
-        page_in (fault_addr, f, is_stack_ref);
+        bool stack_page = fault_addr < PHYS_BASE && fault_addr >= (f->esp - 32);
+        page_in (fault_addr, f, stack_page);
         /*
         uint32_t *supdir = thread_current ()->supdir;
         uint32_t *stack_pt = f->esp;
@@ -220,7 +220,7 @@ page_fault (struct intr_frame *f)
 }
 
 void
-page_in (void *fault_addr, struct intr_frame *f, bool is_stack_ref)
+page_in (void *fault_addr, struct intr_frame *f, bool stack_page)
 {
   //printf ("Attempting to load virtual page containing %p\n", fault_addr);
   void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
@@ -230,7 +230,7 @@ page_in (void *fault_addr, struct intr_frame *f, bool is_stack_ref)
   //uint32_t *stack_pt_round = (uint32_t *) ((uint32_t) f->esp & PTE_ADDR);
   //bool is_stack_page = (fault_addr + 32) == stack_pt || (fault_addr + 4) == stack_pt || fault_addr == stack_pt || stack_pt_round == fault_page;
   
-  if (!is_stack_ref)
+  if (!stack_page)
     if (!lookup_sup_page (supdir, fault_page))
       {
         //printf ("Killing %s because fault address isn't in a stack page and isn't in sup table.\n", thread_current ()->name);
@@ -244,7 +244,7 @@ page_in (void *fault_addr, struct intr_frame *f, bool is_stack_ref)
         //printf ("Killing %s because evict page no worky.\n", thread_current ()->name);
         self_destruct (-1);
       }
-  if (is_stack_ref)
+  if (stack_page)
     {
       memset (frame, 0, PGSIZE);
       pagedir_set_page (thread_current ()->pagedir, fault_page, frame, true);

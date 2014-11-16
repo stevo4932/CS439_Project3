@@ -33,7 +33,7 @@ void __vprintf (const char *format, va_list args,
 void __printf (const char *format,
                void (*output) (char, void *), void *aux, ...);
 
-/* Try to be helpful. */
+/* Try to be helpful. Pintos is so nice. */
 #define sprintf dont_use_sprintf_use_snprintf
 #define vsprintf dont_use_vsprintf_use_vsnprintf
 

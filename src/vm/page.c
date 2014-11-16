@@ -62,53 +62,6 @@ lookup_sup_page (struct hash *table, const void *vaddr)
   entry.vaddr = (uint32_t) vaddr;
   e = hash_find (table, &entry.elem);
   return (e != NULL) ? hash_entry (e, struct spte, elem) : NULL;
-  /*
-  uint64_t *pt;
-  uint32_t *pde;
-
-  ASSERT (pd != NULL);
-
-  /* Shouldn't create new kernel virtual mappings. */
-  //ASSERT (!create || is_user_vaddr (vaddr));
-
-  /* Check for a page table for VADDR.
-     If one is missing, create one if requested. */
-  /*
-  pde = pd + pd_no (vaddr);
-  if (*pde == 0) 
-    {
-      if (create)
-        {
-          pt = (uint64_t *) palloc_get_page (PAL_ZERO | PAL_ASSERT);
-          
-          if (pt == NULL) 
-          {
-            printf ("Could not palloc a supplemental page table.\n");
-            return NULL; 
-          }
-            
-          
-          *pde = (uint32_t) pt;
-          
-        }
-      else
-        {
-          printf("Did not find anything, sorry!\n");
-          return NULL;
-        }
-        
-    }
-
-  /* Return the page table entry. */
-    /*
-  pt = (uint64_t *) *pde;
-  printf ("Lookup_sup_page found entry %llx\n", pt[pt_no (vaddr)]);
-
-  return &pt[pt_no (vaddr)]; */
-  //pt = (uint64_t *) (*pde + (8 * pt_no (vaddr)));
-  
-  //printf ("Lookup_sup_page found entry %llx\n", *pt);
-  //return pt;
 }
 
 bool
@@ -129,29 +82,6 @@ supdir_set_page (struct hash *table, void *vaddr, block_sector_t sector, size_t 
   entry->in_mem = false;
   hash_replace (table, &entry->elem);
   return true;
-  /*
-  uint64_t *spte;
-  ASSERT (pg_ofs (vaddr) == 0);
-  ASSERT (is_user_vaddr (vaddr));
-
-  spte = lookup_sup_page (pd, (const void *) vaddr, true);
-  //printf ("Adding to suptable, virtual address %p, which is %s\n", vaddr, writable ? "writable" : "read-only");
-
-  if (spte != NULL) 
-    {
-    	uint64_t large_read_bytes = read_bytes;
-      uint64_t large_location = (uint64_t) 0 | location;
-      uint64_t large_writable = (uint64_t) 0 | writable;
-      *spte = (large_writable << WRITABLE_SHIFT) | (large_read_bytes << READ_BYTES_SHIFT) | (large_location << LOC_SHIFT) | sector;
-      //printf ("ENTRY %x, virtual address %p, sector %d, %s\n", *spte, vaddr, sector, writable ? "writable" : "read-only");
-      //printf ("SET PAGE %llx for vaddr %p\n", *spte, vaddr);
-      ASSERT (writable == writable_from_spte (*spte));
-      //printf ("supdir_set_page created entry %llx for page %p\n", *spte, vaddr);
-      printf ("After setting page, for vaddr %p, looking up the page yields entry %llx\n", vaddr, *lookup_sup_page (pd, vaddr, false));
-      return true;
-    }
-  else
-    return false;*/
 }
 
 bool
@@ -193,7 +123,6 @@ bool
 load_page (void *vpage, void *frame)
 {
   //printf ("Loading virtual page %p into frame: %p for thread %d\n", vpage, frame, thread_current ()->tid);
-  //printf ("let's load a page!\n");
   struct spte *entry = lookup_sup_page (thread_current ()->supdir, (const void *) vpage);
   if (entry->in_mem)
     printf ("Uh oh, trying to read in a page that's already in memory.\n");
@@ -203,9 +132,7 @@ load_page (void *vpage, void *frame)
       int32_t read_bytes = entry->read_bytes;
       uint32_t zero_bytes = PGSIZE - read_bytes;
       block_sector_t sector = entry->sector;
-      //printf ("About to attempt to read %d bytes from %s, starting at sector %d\n", read_bytes, location == FILE_SYS ? "file system " : "swap ", sector);
       //printf ("LOAD PAGE %llx for vaddr %p\n", entry, vpage);
-      //printf ("Entry %a: Mapped %s virtual page %p to physical frame %p\n", entry, writable ? "writable" : "read-only", vpage, frame);
       void *frame_ = frame;
       if (location == FILE_SYS)
         {

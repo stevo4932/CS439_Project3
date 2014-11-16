@@ -18,14 +18,15 @@
 static struct hash *ft;
 unsigned frame_hash (const struct hash_elem *e, void *aux UNUSED);
 bool frame_less_than (const struct hash_elem *elem_a, const struct hash_elem *elem_b, void *aux UNUSED);
-static struct semaphore ft_sema;
+static struct semaphore *ft_sema;
 
 void 
 frame_table_init ()
 {
 	ft = malloc (sizeof (struct hash));
 	hash_init (ft, (hash_hash_func *) frame_hash, (hash_less_func *) frame_less_than, NULL);
-	sema_init (&ft_sema, 1);
+	ft_sema = malloc (sizeof (struct semaphore));
+	sema_init (ft_sema, 1);
 }
 
 /* Obtains an unused frame for the user.
@@ -51,9 +52,9 @@ get_user_page (uint8_t *vaddr)
 	entry->thread = thread_current ();
 	//printf("(get_user_page) Adding thread: %d and it's address: %p\n", entry->thread->tid, vaddr);
 	entry->pinned = false;
-	sema_down (&ft_sema);
+	sema_down (ft_sema);
 	hash_replace (ft, &entry->elem);
-	sema_up (&ft_sema);
+	sema_up (ft_sema);
 	return page;
 }
 
@@ -62,7 +63,7 @@ void *
 evict_page (uint8_t *new_addr)
 {
 	//printf ("Eviction time!\n");
-	sema_down (&ft_sema);
+	sema_down (ft_sema);
 	struct hash_iterator iterator;
 	hash_first (&iterator, ft);
 	struct hash_elem *e = hash_next (&iterator);
@@ -87,36 +88,17 @@ evict_page (uint8_t *new_addr)
 			block_sector_t sector = swap_write (frame_addr);
 			supdir_set_swap (victim->supdir, old_addr, sector);
 		}
-	/* If the page is read-only, it must live in the file system. Update location in supplemental page table. */
-	else //if (spte->writable == false)
-		{
-			spte->in_mem = false;
-		} /*
 	else
-		{
-			spte->location = ZERO_SYS;
-		} */
+		spte->in_mem = false;
 	//printf ("Clearing entry in victim's (%s) page directory.\n", victim->name);
 	pagedir_clear_page (victim->pagedir, old_addr);
 	hash_delete (ft, e);
 	entry->thread = thread_current ();
 	entry->vaddr = (uint32_t) new_addr;
 	hash_replace (ft, e);
-	sema_up (&ft_sema);
+	sema_up (ft_sema);
 	//printf ("Done evicting virtual page %p from thread %d\n", old_addr, victim->tid);
 	return frame_addr;
-
-	/*
-	uint32_t old_addr = (ft[evict_index] >> 32);
-	printf ("Old addr: %x\n", old_addr);
-	//struct thread *t = (struct thread *) (ft[evict_index] & (uint32_t)(-1));
-	struct thread *t = (struct thread *) (uint32_t) ft[evict_index];
-	uint32_t frame_addr = (uint32_t) pagedir_get_page (t->pagedir, (const void *) old_addr);
-	uint64_t big_addr = (uint64_t) 0 | (int) new_addr;
-	pagedir_clear_page (t->pagedir, (void *) old_addr);
-	ft[evict_index++] = (big_addr << 32) | (int) thread_current ();
-	return (void *) frame_addr;
-	*/
 }
 
 void
@@ -129,10 +111,10 @@ free_frame (void *vaddr)
 	//find entry in frame table.
 	entry->vaddr = (uint32_t) vaddr;
 	entry->thread = t;
-	sema_down (&ft_sema);
+	sema_down (ft_sema);
 	del_elem =	hash_delete (ft, &entry->elem);
 	remove_entry = hash_entry (del_elem, struct ft_entry, elem);
-	sema_up (&ft_sema);
+	sema_up (ft_sema);
 	//reclaim entrys.
 	free (remove_entry);
 	free (entry);
@@ -141,16 +123,16 @@ free_frame (void *vaddr)
 void
 frame_table_destroy ()
 {
-	sema_down (&ft_sema);
+	sema_down (ft_sema);
 	hash_destroy (ft, NULL);
   free (ft);
-  sema_up (&ft_sema);
+  sema_up (ft_sema);
 }
 
 void
 set_pinned (void *vaddr, bool set)
 {
-	sema_down (&ft_sema);
+	sema_down (ft_sema);
 	struct thread *t = thread_current ();
 	//printf("thread %d is pinning to %s now!\n", t->tid, set ? "true" : "false");
 	struct ft_entry entry;
@@ -162,7 +144,7 @@ set_pinned (void *vaddr, bool set)
 	pin_entry->pinned = set;
 	//printf("Did I get here?\n");
 	//printf("That's it I'v had it. I'm done! Bye!\n");
-	sema_up (&ft_sema);
+	sema_up (ft_sema);
 }
 
 /* Returns a hash value for entry e. */
