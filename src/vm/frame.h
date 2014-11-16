@@ -4,13 +4,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <hash.h>
+#include "threads/synch.h"
 
 struct ft_entry
 {
 	struct hash_elem elem;
 	struct thread *thread;
 	uint32_t vaddr;
-	bool pinned;
+	struct semaphore pin_sema;
 };
 
 void frame_table_init (void);

@@ -488,7 +488,6 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (&t->child_sema, 0);
   sema_init (&t->load_sema, 0);
   sema_init (&t->child_list_sema, 1);
-  sema_init (&t->io_sema, 0);
   
   /* Initialize parent to null. */
   t->parent = NULL;

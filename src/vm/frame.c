@@ -12,7 +12,6 @@
 #include "threads/palloc.h"
 #include "threads/vaddr.h" 
 #include "threads/thread.h"
-#include "threads/synch.h"
 #include "devices/block.h"
 
 static struct hash *ft;
@@ -51,7 +50,7 @@ get_user_page (uint8_t *vaddr)
 	entry->vaddr = (uint32_t) vaddr;
 	entry->thread = thread_current ();
 	//printf("(get_user_page) Adding thread: %d and it's address: %p\n", entry->thread->tid, vaddr);
-	entry->pinned = false;
+	sema_init (&entry->pin_sema, 1);
 	sema_down (ft_sema);
 	hash_replace (ft, &entry->elem);
 	sema_up (ft_sema);
@@ -71,12 +70,11 @@ evict_page (uint8_t *new_addr)
 
 	/* NOPE, need a legit algorithm */
 
-	while (entry->pinned == true)
+	while (!sema_try_down (&entry->pin_sema))
 		{
 			struct hash_elem *e = hash_next (&iterator);
 			entry = hash_entry (e, struct ft_entry, elem);
 		}
-	entry->pinned = true;
 	struct thread *victim = entry->thread;
 	void *old_addr = (void *) entry->vaddr;
 	void *frame_addr = pagedir_get_page (victim->pagedir, old_addr);
@@ -139,12 +137,22 @@ set_pinned (void *vaddr, bool set)
 	entry.vaddr = (uint32_t) vaddr;
 	entry.thread = t;
 	struct ft_entry *pin_entry = hash_entry (hash_find (ft, &entry.elem), struct ft_entry, elem);
-	if(pin_entry == NULL)
-		printf("Yah pin_entry is not correct for thread: %d and vaddr: %p\n", t->tid, vaddr);
-	pin_entry->pinned = set;
+	sema_up (ft_sema);
+	if (pin_entry != NULL)
+		{
+			if (set)
+				sema_down (&pin_entry->pin_sema);
+			else
+				{
+					sema_try_down (&pin_entry->pin_sema);
+					sema_up (&pin_entry->pin_sema);
+				}
+		}
+	else
+		printf ("Yah pin_entry is not correct for thread: %d and vaddr: %p\n", t->tid, vaddr);
 	//printf("Did I get here?\n");
 	//printf("That's it I'v had it. I'm done! Bye!\n");
-	sema_up (ft_sema);
+	
 }
 
 /* Returns a hash value for entry e. */

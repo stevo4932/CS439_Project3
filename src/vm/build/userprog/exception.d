@@ -8,4 +8,4 @@ userprog/exception.o: ../../userprog/exception.c \
   ../../threads/pte.h ../../threads/vaddr.h ../../threads/loader.h \
   ../../userprog/syscall.h ../../filesys/file.h ../../filesys/off_t.h \
   ../../vm/frame.h ../../lib/kernel/hash.h ../../lib/kernel/list.h \
-  ../../vm/page.h ../../devices/block.h
+  ../../threads/synch.h ../../vm/page.h ../../devices/block.h

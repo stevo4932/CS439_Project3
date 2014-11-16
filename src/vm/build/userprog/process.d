@@ -10,5 +10,5 @@ userprog/process.o: ../../userprog/process.c ../../userprog/process.h \
   ../../threads/flags.h ../../threads/init.h ../../threads/interrupt.h \
   ../../threads/palloc.h ../../threads/malloc.h ../../threads/vaddr.h \
   ../../threads/loader.h ../../userprog/syscall.h ../../vm/frame.h \
-  ../../lib/kernel/hash.h ../../lib/kernel/list.h ../../vm/page.h \
-  ../../devices/block.h ../../devices/block.h
+  ../../lib/kernel/hash.h ../../lib/kernel/list.h ../../threads/synch.h \
+  ../../vm/page.h ../../devices/block.h ../../devices/block.h
