@@ -192,7 +192,7 @@ supdir_clear_page (struct hash *table, void *upage)
 bool
 load_page (void *vpage, void *frame)
 {
-  printf ("Loading virtual page %p into frame: %p for thread %d\n", vpage, frame, thread_current ()->tid);
+  //printf ("Loading virtual page %p into frame: %p for thread %d\n", vpage, frame, thread_current ()->tid);
   //printf ("let's load a page!\n");
   struct spte *entry = lookup_sup_page (thread_current ()->supdir, (const void *) vpage);
   if (entry->in_mem)

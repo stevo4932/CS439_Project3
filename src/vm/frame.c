@@ -49,7 +49,7 @@ get_user_page (uint8_t *vaddr)
 	// else
 	entry->vaddr = (uint32_t) vaddr;
 	entry->thread = thread_current ();
-	printf("(get_user_page) Adding thread: %d and it's address: %p\n", entry->thread->tid, vaddr);
+	//printf("(get_user_page) Adding thread: %d and it's address: %p\n", entry->thread->tid, vaddr);
 	entry->pinned = false;
 	sema_down (&ft_sema);
 	hash_replace (ft, &entry->elem);
@@ -61,7 +61,7 @@ get_user_page (uint8_t *vaddr)
 void *
 evict_page (uint8_t *new_addr)
 {
-	printf ("Eviction time!\n");
+	//printf ("Eviction time!\n");
 	sema_down (&ft_sema);
 	struct hash_iterator iterator;
 	hash_first (&iterator, ft);
@@ -79,7 +79,7 @@ evict_page (uint8_t *new_addr)
 	struct thread *victim = entry->thread;
 	void *old_addr = (void *) entry->vaddr;
 	void *frame_addr = pagedir_get_page (victim->pagedir, old_addr);
-	printf ("Thread %d evicting virtual page %p (in frame %p) from thread %d\n", thread_current ()->tid, frame_addr, old_addr, victim->tid);
+	//printf ("Thread %d evicting virtual page %p (in frame %p) from thread %d\n", thread_current ()->tid, frame_addr, old_addr, victim->tid);
 	struct spte *spte = lookup_sup_page (victim->supdir, old_addr);
 	if (pagedir_is_dirty (victim->pagedir, old_addr))
 		{
@@ -103,7 +103,7 @@ evict_page (uint8_t *new_addr)
 	entry->vaddr = (uint32_t) new_addr;
 	hash_replace (ft, e);
 	sema_up (&ft_sema);
-	printf ("Done evicting virtual page %p from thread %d\n", old_addr, victim->tid);
+	//printf ("Done evicting virtual page %p from thread %d\n", old_addr, victim->tid);
 	return frame_addr;
 
 	/*

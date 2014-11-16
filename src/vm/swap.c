@@ -74,4 +74,3 @@ swap_remove (size_t sector)
 	bitmap_reset (swap_table, sector);
 	sema_up (&swap_sema);
 }
-
