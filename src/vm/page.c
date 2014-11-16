@@ -37,9 +37,15 @@ supdir_destroy (struct hash *table)
   while (e != NULL)
     {
       struct spte *entry = hash_entry (e, struct spte, elem);
-      if (entry->in_mem)
-        free_frame ((void *) entry->vaddr); // placeholder
-      else if (entry->location == SWAP_SYS)
+      //if (entry->in_mem)
+      //  free_frame ((void *) entry->vaddr); // placeholder
+      uint32_t *pte = lookup_page (thread_current ()->pagedir, (const void *) entry->vaddr, false);
+      /*if ((pte != NULL) && (*pte & PTE_P))
+        {
+          palloc_free_page (pte_get_page (*pte));
+          free_frame (pte_get_page (*pte));
+        }*/
+      if ((pte != NULL) && !(*pte & PTE_P) && (entry->location == SWAP_SYS))
         swap_remove (entry->sector);
       e = hash_next (&iterator);
     }
@@ -79,7 +85,6 @@ supdir_set_page (struct hash *table, void *vaddr, block_sector_t sector, size_t 
   entry->read_bytes = read_bytes;
   entry->location = location;
   entry->writable = writable;
-  entry->in_mem = false;
   hash_replace (table, &entry->elem);
   return true;
 }
@@ -93,7 +98,6 @@ supdir_set_swap (struct hash *supdir, void *vaddr, block_sector_t swap_sector)
       entry->location = SWAP_SYS;
       entry->sector = swap_sector;
       entry->read_bytes = PGSIZE;
-      entry->in_mem = false;
       return true;
     }
   return false;
@@ -124,9 +128,7 @@ load_page (void *vpage, void *frame)
 {
   //printf ("Loading virtual page %p into frame: %p for thread %d\n", vpage, frame, thread_current ()->tid);
   struct spte *entry = lookup_sup_page (thread_current ()->supdir, (const void *) vpage);
-  if (entry->in_mem)
-    printf ("Uh oh, trying to read in a page that's already in memory.\n");
-  if (entry != NULL && !entry->in_mem)
+  if (entry != NULL)
     {
       uint8_t location = entry->location;
       int32_t read_bytes = entry->read_bytes;
@@ -156,7 +158,6 @@ load_page (void *vpage, void *frame)
         memset (frame_, 0, zero_bytes);
       bool writable = entry->writable;
       //printf ("LOAD %s PAGE for vaddr %p for thread %s\n", writable ? "writable" : "read-only", vpage, thread_current ()->name);
-      entry->in_mem = true;
       pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
       return true;
     }

@@ -18,12 +18,15 @@ static struct hash *ft;
 unsigned frame_hash (const struct hash_elem *e, void *aux UNUSED);
 bool frame_less_than (const struct hash_elem *elem_a, const struct hash_elem *elem_b, void *aux UNUSED);
 static struct semaphore *ft_sema;
+static int *it_count;
 
 void 
 frame_table_init ()
 {
 	ft = malloc (sizeof (struct hash));
 	hash_init (ft, (hash_hash_func *) frame_hash, (hash_less_func *) frame_less_than, NULL);
+	it_count = malloc (sizeof (int));
+	*it_count = 1;
 	ft_sema = malloc (sizeof (struct semaphore));
 	sema_init (ft_sema, 1);
 }
@@ -80,14 +83,12 @@ evict_page (uint8_t *new_addr)
 	void *frame_addr = pagedir_get_page (victim->pagedir, old_addr);
 	//printf ("Thread %d evicting virtual page %p (in frame %p) from thread %d\n", thread_current ()->tid, frame_addr, old_addr, victim->tid);
 	struct spte *spte = lookup_sup_page (victim->supdir, old_addr);
-	if (pagedir_is_dirty (victim->pagedir, old_addr))
+	if (pagedir_is_dirty (victim->pagedir, old_addr) || spte->location == SWAP_SYS)
 		{
 			//printf ("Swapping out virtual page %p from victim %s\n", old_addr, victim->name);
 			block_sector_t sector = swap_write (frame_addr);
 			supdir_set_swap (victim->supdir, old_addr, sector);
 		}
-	else
-		spte->in_mem = false;
 	//printf ("Clearing entry in victim's (%s) page directory.\n", victim->name);
 	pagedir_clear_page (victim->pagedir, old_addr);
 	hash_delete (ft, e);
@@ -103,19 +104,22 @@ void
 free_frame (void *vaddr)
 {
 	struct thread *t = thread_current ();
-	struct ft_entry *entry = malloc (sizeof (struct ft_entry));
+	struct ft_entry entry;
 	struct hash_elem *del_elem;
 	struct ft_entry *remove_entry;
 	//find entry in frame table.
-	entry->vaddr = (uint32_t) vaddr;
-	entry->thread = t;
+	entry.vaddr = (uint32_t) vaddr;
+	entry.thread = t;
 	sema_down (ft_sema);
-	del_elem =	hash_delete (ft, &entry->elem);
-	remove_entry = hash_entry (del_elem, struct ft_entry, elem);
+	del_elem =	hash_find (ft, &entry.elem);
+	if (del_elem != NULL)
+		{
+			remove_entry = hash_entry (del_elem, struct ft_entry, elem);
+			hash_delete (ft, del_elem);
+			free (remove_entry);
+		}
 	sema_up (ft_sema);
 	//reclaim entrys.
-	free (remove_entry);
-	free (entry);
 }
 
 void

@@ -3,4 +3,5 @@ userprog/pagedir.o: ../../userprog/pagedir.c ../../userprog/pagedir.h \
   ../../lib/string.h ../../threads/thread.h ../../lib/debug.h \
   ../../lib/kernel/list.h ../../threads/synch.h ../../threads/init.h \
   ../../threads/pte.h ../../threads/vaddr.h ../../threads/loader.h \
-  ../../threads/palloc.h
+  ../../threads/palloc.h ../../vm/frame.h ../../lib/kernel/hash.h \
+  ../../lib/kernel/list.h ../../threads/synch.h
