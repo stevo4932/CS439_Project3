@@ -125,7 +125,6 @@ kill (struct intr_frame *f)
 static void
 page_fault (struct intr_frame *f) 
 {
-  //printf ("entering page fault %s\n", thread_current ()->name);
   /* Heather is driving. */
   /* If the page fault was not caused by a user process, proceed as normal
      and print all debug information. */
@@ -146,9 +145,6 @@ page_fault (struct intr_frame *f)
     /* Turn interrupts back on (they were only off so that we could
        be assured of reading CR2 before it changed). */
     intr_enable ();
-
-    //printf ("Page fault at %p\n", fault_addr);
-
     /* Count page faults. */
     page_fault_cnt++;
 
@@ -156,94 +152,31 @@ page_fault (struct intr_frame *f)
     not_present = (f->error_code & PF_P) == 0;
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
-    /*
-    if (user)
-      printf ("User page fault\n");
-    if (write)
-      printf ("Bad write\n");
-    if (not_present)
-      printf ("Page not present.\n");
-      */
-
-    //void *pd = thread_current ()->pagedir;
-    //uint32_t *pte = lookup_page (pd, fault_addr, false);
-    /*if (pte == NULL)
-      //printf ("PTE not found\n");
-    else
-      {
-        bool pte_write = *pte & PTE_W;
-        //printf ("PTE says %x.\n", *pte);
-
-      }    */
 
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
        which fault_addr refers. */
-    //printf ("Page fault at %p\n", fault_addr);
-    //printf ("ESP = %p\n", f->esp);
-    //void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
     if (user && not_present)
       {
         bool stack_page = fault_addr < PHYS_BASE && fault_addr >= (f->esp - 32);
         page_in (fault_addr, f, stack_page);
-        /*
-        uint32_t *supdir = thread_current ()->supdir;
-        uint32_t *stack_pt = f->esp;
-        uint32_t *stack_pt_round = (uint32_t *) ((uint32_t) f->esp & PTE_ADDR);
-        bool is_stack_page = user && ((fault_addr + 32) == stack_pt || (fault_addr + 4) == stack_pt || fault_addr == stack_pt || stack_pt_round == fault_page);
-        //if fault is due to stack, skip sup table look up.
-        //if (is_stack_page)
-          //printf("It's a stack page.\n");
-        if (!is_stack_page)
-          if (!lookup_sup_page (supdir, fault_page, false))
-            kill (f);
-        void *frame = get_user_page (fault_page);
-        if (frame == NULL)
-          if (!(frame = evict_page (fault_page)))
-            kill (f);
-        //printf ("About to load page.\n");
-        if (is_stack_page)
-          load_stack_pg (fault_page, frame);
-        else
-          load_page (fault_page, frame);
-        */
       }
     else
-    {
-      //if (write)
-        //printf ("User tried to write in a no-write zone.\n");
       kill (f);
-      //self_destruct (-1);
-    }
-  //printf ("exiting page fault: %s\n", thread_current ()->name);
-  //kill (f);
 }
 
 void
 page_in (void *fault_addr, struct intr_frame *f, bool stack_page)
 {
-  //printf ("Attempting to load virtual page containing %p\n", fault_addr);
   void *fault_page = (void *) ((uint32_t) fault_addr & PTE_ADDR);
   struct hash *supdir = thread_current ()->supdir;
-  //uint32_t *stack_pt = f->esp;
-  //printf ("Fault address is %p, ESP is %p\n", fault_addr, stack_pt);
-  //uint32_t *stack_pt_round = (uint32_t *) ((uint32_t) f->esp & PTE_ADDR);
-  //bool is_stack_page = (fault_addr + 32) == stack_pt || (fault_addr + 4) == stack_pt || fault_addr == stack_pt || stack_pt_round == fault_page;
-  
   if (!stack_page)
     if (!lookup_sup_page (supdir, fault_page))
-      {
-        //printf ("Killing %s because fault address isn't in a stack page and isn't in sup table.\n", thread_current ()->name);
-        self_destruct (-1);
-      }
-      
+      self_destruct (-1);
   void *frame = get_user_page (fault_page);
   if (frame == NULL)
     if (!(frame = evict_page (fault_page)))
-      {
-        //printf ("Killing %s because evict page no worky.\n", thread_current ()->name);
-        self_destruct (-1);
-      }
+      self_destruct (-1);
   if (stack_page)
     {
       memset (frame, 0, PGSIZE);

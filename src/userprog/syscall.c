@@ -152,9 +152,7 @@ is_pt_valid (const void *pt, struct intr_frame *f, bool allow_stack_growth)
     }
   else if (pagedir_get_page (thread_current ()->pagedir, pt) == NULL)
     {
-      //printf ("In is_pt_valid, address was unmapped, attempting to page in.\n");
       bool stack_page = allow_stack_growth ? (pt < PHYS_BASE && pt >= (f->esp - 32)) : false;
-      //if (stack_page) printf ("Attempting to grow stack from inside system call.\n");
       page_in ((void *)pt, f, stack_page);
     }
   return true;
@@ -241,7 +239,6 @@ sys_wait (pid_t pid, struct intr_frame *f)
 void
 self_destruct (int status)
 {
-  //printf ("thread %d attempting to self destruct\n", thread_current ()->tid);
   /* Heather is driving. */
   struct thread *t = thread_current ();
   struct list_elem *e;
@@ -257,7 +254,6 @@ self_destruct (int status)
     }
   supdir_destroy (t->supdir);
   printf ("%s: exit(%d)\n", thread_current ()->name, status);
-  //printf ("%s(%d): exit(%d)\n", thread_current ()->name, thread_current ()->tid, status);
   thread_exit ();
 }
 
@@ -276,7 +272,6 @@ sys_exit (int status, struct intr_frame *f)
 static void 
 sys_open (const char *file_name, struct intr_frame *f)
 {
-  //printf ("Opening %s\n", file_name);
   /* Edwin is driving. */
   sema_down (file_sema);
   f->eax = -1;
@@ -296,7 +291,6 @@ sys_open (const char *file_name, struct intr_frame *f)
         }
     }
   sema_up (file_sema);
-  //printf ("Opened %s\n", file_name);
 }
 
 /* Attempts to write the contents of BUFFER into the file denoted by the given file descriptor.
@@ -403,7 +397,6 @@ static void
 sys_read (int fd, void *buffer, unsigned size, struct intr_frame *f)
 {
   /* Heather is driving. */
-  //printf ("Trying to read from fd %d\n", fd);
   struct file *file;
   struct thread *t = thread_current ();
   if (fd == 0)
@@ -432,15 +425,11 @@ sys_read (int fd, void *buffer, unsigned size, struct intr_frame *f)
     uint32_t *pd = t->pagedir;
     for (buffer_ = (void *) ((uint32_t) buffer & 0xfffff000); (unsigned) buffer_ < (unsigned) buffer + size; buffer_ += PGSIZE)
     {
-      //printf ("Validating buffer at %p\n", buffer_);
       if (!is_pt_valid (buffer_, f, true) || !(*(lookup_page (pd, buffer_, false)) & PTE_W))
         self_destruct (-1);
-      //printf ("Buffer at %p is %s\n", buffer_, valid ? "valid." : "invalid.");
-      //printf ("made it past is_pt_valid!\n");
     }
     sema_down (file_sema);
     f->eax = (int)file_read (file, buffer, size);
-    //printf ("not reached\n");
     sema_up (file_sema);
   }
   else

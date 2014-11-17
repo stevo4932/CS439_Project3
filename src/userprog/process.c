@@ -316,7 +316,7 @@ parse_push (const char *cmdline, void **esp)
 {
   char *token, *save_ptr, *file_name, *s;
   char *my_esp = (char *) *esp;
-  s = palloc_get_page (PAL_ZERO | PAL_USER | PAL_ASSERT);
+  s = palloc_get_page (PAL_ZERO | PAL_ASSERT);
   strlcpy (s, cmdline, strnlen (cmdline, MAX_CMD_LEN) + 1);
   int len, argc = 0;
 
@@ -494,7 +494,6 @@ load (const char *cmdline, void (**eip) (void), void **esp)
  done:
   /* Edwin is driving */
   file_close (file);
-  //printf ("Finished loading %s\n", cmdline_copy);
   palloc_free_page (cmdline_copy);
   sema_up (file_sema); 
   return success;
@@ -565,12 +564,12 @@ static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
+  /* Stephanie is driving */
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
-  //printf ("Loading %s segment starting at offset %d, virtual page %p\n", writable ? "writable" : "read-only", ofs, upage);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
       /* Calculate how to fill this page.
@@ -584,7 +583,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           struct inode *inode = file_get_inode (file);
           ASSERT (inode != NULL);
           uint32_t sector = byte_to_sector (inode, ofs);
-          //printf ("Read_bytes = %d, offset %d maps to sector %d\n", page_read_bytes, ofs, sector);
           supdir_set_page (thread_current ()->supdir, upage, sector, page_read_bytes, location, writable);
         }
       else
@@ -605,8 +603,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (const char *cmdline, void **esp) 
 {
-  //uint8_t *kpage;
-  //printf ("Setting up stack for thread %d\n", thread_current ()->tid);
   bool success = false;
   struct hash *supdir = thread_current ()->supdir;
 
@@ -623,22 +619,7 @@ setup_stack (const char *cmdline, void **esp)
     {
       *esp = PHYS_BASE;
       parse_push (cmdline, esp);
-      //printf ("Set up stack for thread %d\n", thread_current ()->tid);
     }
-  else
-  {
-    printf ("Did not set up stack for thread %d\n", thread_current ()->tid);
-  }
-  /*
-  kpage = get_user_page (((uint8_t *) PHYS_BASE) - PGSIZE);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      
-      else
-        palloc_free_page (kpage);
-    }
-  */
   return success;
 }
 

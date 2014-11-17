@@ -13,14 +13,10 @@
 #include "filesys/filesys.h"
 #include "userprog/pagedir.h"
 
-/* Creates a new page directory that has mappings for kernel
-   virtual addresses, but none for user virtual addresses.
-   Returns the new page directory, or a null pointer if memory
-   allocation fails. */
 struct hash *
 supdir_create (void) 
 {
-  //return (uint32_t *) palloc_get_page (0);
+  /* Stephanie was Driving */
   struct hash *hash_table = malloc (sizeof (struct hash));
   hash_init (hash_table, (hash_hash_func *) hash, (hash_less_func *) less_than, NULL);
   return hash_table;
@@ -37,14 +33,7 @@ supdir_destroy (struct hash *table)
   while (e != NULL)
     {
       struct spte *entry = hash_entry (e, struct spte, elem);
-      //if (entry->in_mem)
-      //  free_frame ((void *) entry->vaddr); // placeholder
       uint32_t *pte = lookup_page (thread_current ()->pagedir, (const void *) entry->vaddr, false);
-      /*if ((pte != NULL) && (*pte & PTE_P))
-        {
-          palloc_free_page (pte_get_page (*pte));
-          free_frame (pte_get_page (*pte));
-        }*/
       if ((pte != NULL) && !(*pte & PTE_P) && (entry->location == SWAP_SYS))
         swap_remove (entry->sector);
       e = hash_next (&iterator);
@@ -53,15 +42,10 @@ supdir_destroy (struct hash *table)
   free (table);
 }
 
-/* Returns the address of the page table entry for virtual
-   address VADDR in page directory PD.
-   If PD does not have a page table for VADDR, behavior depends
-   on CREATE.  If CREATE is true, then a new page table is
-   created and a pointer into it is returned.  Otherwise, a null
-   pointer is returned. */
 struct spte *
 lookup_sup_page (struct hash *table, const void *vaddr)
 {
+  /* Edwin was driving */
   struct spte entry;
   struct hash_elem *e;
 
@@ -103,13 +87,10 @@ supdir_set_swap (struct hash *supdir, void *vaddr, block_sector_t swap_sector)
   return false;
 }
 
-/* Marks user virtual page UPAGE "not present" in page
-   directory PD.  Later accesses to the page will fault.  Other
-   bits in the page table entry are preserved.
-   UPAGE need not be mapped. */
 void
 supdir_clear_page (struct hash *table, void *upage) 
 {
+  /* Heather was driving */
   struct spte *spte;
 
   ASSERT (pg_ofs (upage) == 0);
@@ -126,7 +107,6 @@ supdir_clear_page (struct hash *table, void *upage)
 bool
 load_page (void *vpage, void *frame)
 {
-  //printf ("Loading virtual page %p into frame: %p for thread %d\n", vpage, frame, thread_current ()->tid);
   struct spte *entry = lookup_sup_page (thread_current ()->supdir, (const void *) vpage);
   if (entry != NULL)
     {
@@ -134,7 +114,6 @@ load_page (void *vpage, void *frame)
       int32_t read_bytes = entry->read_bytes;
       uint32_t zero_bytes = PGSIZE - read_bytes;
       block_sector_t sector = entry->sector;
-      //printf ("LOAD PAGE %llx for vaddr %p\n", entry, vpage);
       void *frame_ = frame;
       if (location == FILE_SYS)
         {
@@ -151,13 +130,11 @@ load_page (void *vpage, void *frame)
         }
       else if (location == SWAP_SYS)
         {
-          //printf ("Reading page %p in from swap device for process %s\n", vpage, thread_current ()->name);
           swap_read (sector, frame);
         }
       if (zero_bytes > 0)
         memset (frame_, 0, zero_bytes);
       bool writable = entry->writable;
-      //printf ("LOAD %s PAGE for vaddr %p for thread %s\n", writable ? "writable" : "read-only", vpage, thread_current ()->name);
       pagedir_set_page (thread_current ()->pagedir, (void *) vpage, (void *) frame, writable);
       return true;
     }

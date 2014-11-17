@@ -30,14 +30,6 @@ block_sector_t supdir_get_sector (struct hash *table, const void *vaddr);
 void supdir_clear_page (struct hash *table, void *upage);
 bool load_page (void *vpage, void *frame);
 bool load_stack_pg (void *vpage, void *frame);
-
-uint8_t location_from_spte (uint64_t entry);
-uint32_t read_bytes_from_spte (uint64_t entry);
-uint32_t sector_from_spte (uint64_t entry);
-bool writable_from_spte (uint64_t entry);
 bool supdir_set_swap (struct hash *supdir, void *vaddr, block_sector_t swap_sector);
-
-unsigned hash (const struct hash_elem *elem, void *aux);
-bool less_than (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 #endif /* vm/page.h */
